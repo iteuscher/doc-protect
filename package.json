@@ -1,0 +1,20 @@
+{
+  "name": "doc-protect",
+  "version": "0.1.0",
+  "description": "Browser-based document encryption platform using typage and WebAuthn PRF",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "age-encryption": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0"
+  }
+}

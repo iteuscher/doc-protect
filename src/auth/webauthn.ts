@@ -1,4 +1,4 @@
-import * as age from 'age-encryption';
+import { webauthn } from 'age-encryption';
 
 export interface WebAuthnCredentialOptions {
   keyName: string;
@@ -23,7 +23,7 @@ export async function createPasskeyCredential(
   options: WebAuthnCredentialOptions
 ): Promise<string> {
   try {
-    const identity = await age.webauthn.createCredential({
+    const identity = await webauthn.createCredential({
       keyName: options.keyName,
     });
     
@@ -33,7 +33,49 @@ export async function createPasskeyCredential(
     return identity;
   } catch (error) {
     console.error('Failed to create passkey credential:', error);
-    throw new Error('Passkey creation failed');
+    
+    // Handle specific error cases
+    if (error instanceof Error) {
+      // Check for PRF extension errors
+      if (error.message.includes('PRF extension') || error.message.includes('prf') || error.message.includes('PRF')) {
+        throw new Error(
+          'PRF extension not available.\n\n' +
+          'Windows Hello (platform authenticator) does not support the PRF extension required for encryption.\n\n' +
+          'To use passkeys for encryption on Windows, you need:\n' +
+          '• An external security key (e.g., YubiKey) that supports PRF/hmac-secret\n' +
+          '• OR use a different platform (macOS 15+, or Linux with a security key)\n\n' +
+          'Note: Regular passkeys (without PRF) can be used for authentication, but not for file encryption in this app.'
+        );
+      }
+      
+      // Check if user cancelled the operation
+      if (error.name === 'NotAllowedError' || error.message.includes('cancel') || error.message.includes('NotAllowed')) {
+        throw new Error('Passkey creation was cancelled by the user');
+      }
+      
+      // Check if WebAuthn is not supported
+      if (error.name === 'NotSupportedError' || error.message.includes('not supported')) {
+        throw new Error('WebAuthn/Passkeys are not supported in this browser. Please use a modern browser that supports WebAuthn.');
+      }
+      
+      // Check for security key errors
+      if (error.name === 'SecurityError' || error.message.includes('SecurityError')) {
+        throw new Error('Security error: Make sure you are using HTTPS or localhost, and that your browser supports WebAuthn.');
+      }
+      
+      // Check for invalid state errors
+      if (error.name === 'InvalidStateError' || error.message.includes('InvalidState')) {
+        throw new Error('A passkey with this name may already exist. Please try a different name.');
+      }
+      
+      // Preserve the original error message if it's informative
+      if (error.message && error.message !== 'Passkey creation failed') {
+        throw new Error(`Passkey creation failed: ${error.message}`);
+      }
+    }
+    
+    // Fallback for unknown errors
+    throw new Error(`Passkey creation failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -44,7 +86,7 @@ export async function createSecurityKeyCredential(
   options: WebAuthnCredentialOptions
 ): Promise<string> {
   try {
-    const identity = await age.webauthn.createCredential({
+    const identity = await webauthn.createCredential({
       type: 'security-key',
       keyName: options.keyName,
     });
@@ -55,7 +97,37 @@ export async function createSecurityKeyCredential(
     return identity;
   } catch (error) {
     console.error('Failed to create security key credential:', error);
-    throw new Error('Security key creation failed');
+    
+    // Handle specific error cases
+    if (error instanceof Error) {
+      // Check if user cancelled the operation
+      if (error.name === 'NotAllowedError' || error.message.includes('cancel') || error.message.includes('NotAllowed')) {
+        throw new Error('Security key creation was cancelled by the user');
+      }
+      
+      // Check if WebAuthn is not supported
+      if (error.name === 'NotSupportedError' || error.message.includes('not supported')) {
+        throw new Error('WebAuthn/Security keys are not supported in this browser. Please use a modern browser that supports WebAuthn.');
+      }
+      
+      // Check for security key errors
+      if (error.name === 'SecurityError' || error.message.includes('SecurityError')) {
+        throw new Error('Security error: Make sure you are using HTTPS or localhost, and that your browser supports WebAuthn.');
+      }
+      
+      // Check for invalid state errors
+      if (error.name === 'InvalidStateError' || error.message.includes('InvalidState')) {
+        throw new Error('A security key with this name may already exist. Please try a different name.');
+      }
+      
+      // Preserve the original error message if it's informative
+      if (error.message && error.message !== 'Security key creation failed') {
+        throw new Error(`Security key creation failed: ${error.message}`);
+      }
+    }
+    
+    // Fallback for unknown errors
+    throw new Error(`Security key creation failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -66,13 +138,13 @@ export async function createSecurityKeyCredential(
  */
 export async function getWebAuthnIdentity(
   identity?: string
-): Promise<age.webauthn.WebAuthnIdentity> {
+): Promise<webauthn.WebAuthnIdentity> {
   if (identity) {
-    return new age.webauthn.WebAuthnIdentity({ identity });
+    return new webauthn.WebAuthnIdentity({ identity });
   }
   
   // For discoverable passkeys, no identity string needed
-  return new age.webauthn.WebAuthnIdentity();
+  return new webauthn.WebAuthnIdentity();
 }
 
 /**
@@ -80,11 +152,11 @@ export async function getWebAuthnIdentity(
  */
 export function createWebAuthnRecipient(
   identity?: string
-): age.webauthn.WebAuthnRecipient {
+): webauthn.WebAuthnRecipient {
   if (identity) {
-    return new age.webauthn.WebAuthnRecipient({ identity });
+    return new webauthn.WebAuthnRecipient({ identity });
   }
-  return new age.webauthn.WebAuthnRecipient();
+  return new webauthn.WebAuthnRecipient();
 }
 
 /**

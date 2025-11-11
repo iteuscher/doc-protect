@@ -30,6 +30,7 @@ export class App {
       encrypt: new EncryptView(viewsContainer),
       decrypt: new DecryptView(viewsContainer),
       files: new MyFilesView(viewsContainer),
+      share: new ShareView(viewsContainer),
       settings: new SettingsView(viewsContainer),
     };
   }
@@ -39,12 +40,8 @@ export class App {
     const receiveModeResult = await handleReceiveMode();
     if (receiveModeResult.shouldSetDecryptMode) {
       this.currentView = 'decrypt';
-      // Pre-fill public key if in receive mode
-      const textarea = document.getElementById('encrypted-input') as HTMLTextAreaElement;
-      if (textarea) {
-        // Could show the generated public key to the user
-        console.log('Receive mode: Generated public key:', receiveModeResult.keyPair.publicKey);
-      }
+      // Log the generated public key for receive mode
+      console.log('Receive mode: Generated public key:', receiveModeResult.keyPair.publicKey);
     }
 
     this.render();

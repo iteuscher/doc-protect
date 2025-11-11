@@ -16,6 +16,44 @@ interface FileMetadata {
   updatedAt: number;
 }
 
+// List files (by owner identity or accessible files)
+router.get('/', async (req, res) => {
+  try {
+    const { ownerIdentity } = req.query;
+
+    if (ownerIdentity) {
+      // Get files owned by this identity
+      const files = await db.all<{
+        id: string;
+        owner_identity: string;
+        metadata: string;
+        created_at: number;
+        updated_at: number;
+      }>(
+        'SELECT id, owner_identity, metadata, created_at, updated_at FROM files WHERE owner_identity = ? ORDER BY created_at DESC',
+        [ownerIdentity]
+      );
+
+      const result = files.map(file => ({
+        id: file.id,
+        ownerIdentity: file.owner_identity,
+        metadata: JSON.parse(file.metadata),
+        createdAt: file.created_at,
+        updatedAt: file.updated_at,
+      }));
+
+      res.json(result);
+    } else {
+      // For now, return empty if no ownerIdentity provided
+      // In future, could return files where user is a recipient
+      res.json([]);
+    }
+  } catch (error) {
+    console.error('Error listing files:', error);
+    res.status(500).json({ error: 'Failed to list files' });
+  }
+});
+
 // Upload encrypted file
 router.post('/', async (req, res) => {
   try {

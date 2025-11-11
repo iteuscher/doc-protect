@@ -1,5 +1,4 @@
 import { createFileDropZone } from '../components/FileInput';
-import { createTextarea } from '../components/Textarea';
 import { createButton } from '../components/Button';
 import { decryptFile } from '../../encryption/age-encryption';
 import { downloadFile } from '../../files/file-manager';
@@ -24,31 +23,21 @@ export class DecryptView {
     inputSection.className = 'section';
     
     const inputLabel = document.createElement('label');
-    inputLabel.textContent = 'Paste encrypted text or select encrypted file:';
+    inputLabel.textContent = 'Select encrypted file to decrypt:';
     inputSection.appendChild(inputLabel);
-    
-    const textarea = createTextarea('Paste encrypted text here...', '', 10);
-    textarea.id = 'encrypted-input';
-    textarea.style.fontFamily = 'monospace';
-    textarea.style.fontSize = '12px';
-    textarea.addEventListener('input', () => {
-      this.encryptedBlob = textarea.value.trim();
-    });
-    inputSection.appendChild(textarea);
-    
-    const orDiv = document.createElement('div');
-    orDiv.textContent = 'or';
-    orDiv.style.textAlign = 'center';
-    orDiv.style.margin = '10px 0';
-    inputSection.appendChild(orDiv);
     
     const dropZone = createFileDropZone(async (file) => {
       const text = await file.text();
-      textarea.value = text;
       this.encryptedBlob = text.trim();
+      this.updateFileDisplay(file);
     });
-    dropZone.textContent = 'Drop encrypted file here';
+    dropZone.textContent = 'Drop encrypted file here or click to select';
     inputSection.appendChild(dropZone);
+    
+    const fileInfo = document.createElement('div');
+    fileInfo.className = 'file-info';
+    fileInfo.id = 'decrypt-file-info';
+    inputSection.appendChild(fileInfo);
     
     this.container.appendChild(inputSection);
 
@@ -66,9 +55,26 @@ export class DecryptView {
     this.container.appendChild(resultSection);
   }
 
+  private updateFileDisplay(file?: File): void {
+    const fileInfo = document.getElementById('decrypt-file-info');
+    if (fileInfo && file) {
+      fileInfo.textContent = `Selected: ${file.name} (${this.formatFileSize(file.size)})`;
+    } else if (fileInfo && this.encryptedBlob) {
+      fileInfo.textContent = 'Encrypted file loaded';
+    } else if (fileInfo) {
+      fileInfo.textContent = '';
+    }
+  }
+
+  private formatFileSize(bytes: number): string {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
   private async handleDecrypt(): Promise<void> {
     if (!this.encryptedBlob || this.encryptedBlob.length === 0) {
-      alert('Please provide encrypted text or file');
+      alert('Please select an encrypted file');
       return;
     }
 
@@ -107,7 +113,9 @@ export class DecryptView {
     resultSection.appendChild(title);
 
     // Try to detect file type
-    const blob = new Blob([decryptedData]);
+    // Create a new Uint8Array to ensure we have a proper ArrayBuffer
+    const buffer = new Uint8Array(decryptedData).buffer;
+    const blob = new Blob([buffer]);
     const url = URL.createObjectURL(blob);
     
     const downloadButton = createButton('Download Decrypted File', () => {

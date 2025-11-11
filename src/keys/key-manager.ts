@@ -13,13 +13,32 @@ const DB_VERSION = 1;
  * Generates a new X25519 identity/recipient key pair
  */
 export async function generateX25519KeyPair(): Promise<KeyPair> {
-  const identity = await age.generateIdentity();
-  const recipient = await age.identityToRecipient(identity);
-  
-  return {
-    privateKey: identity,
-    publicKey: recipient,
-  };
+  try {
+    // Check if generateIdentity is available
+    if (typeof age.generateIdentity !== 'function') {
+      throw new Error('age.generateIdentity is not available. Make sure you are using a compatible version of age-encryption.');
+    }
+    
+    const identity = await age.generateIdentity();
+    
+    // Check if identityToRecipient is available
+    if (typeof age.identityToRecipient !== 'function') {
+      throw new Error('age.identityToRecipient is not available. Make sure you are using a compatible version of age-encryption.');
+    }
+    
+    const recipient = await age.identityToRecipient(identity);
+    
+    return {
+      privateKey: identity,
+      publicKey: recipient,
+    };
+  } catch (error) {
+    console.error('Failed to generate X25519 key pair:', error);
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(`Failed to generate key pair: ${String(error)}`);
+  }
 }
 
 /**

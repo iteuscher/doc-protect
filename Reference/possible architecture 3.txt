@@ -1,0 +1,179 @@
+To implement browser local file encryption using the typage (or age-encryption) library with the WebAuthn PRF extension for passwordless user authentication, you'll use the symmetric encryption feature tied to a passkey or security key.This approach means the user's biometric or device-based authentication unlocks a cryptographic primitive (the PRF), which then acts as the "key" to encrypt/decrypt the file, completely replacing a traditional passphrase.Here's the step-by-step implementation guide:💻 WebAuthn Passwordless Encryption ImplementationThe process involves two main stages: creating the WebAuthn credential (the passkey/security key) and then using it for encryption and decryption.1. Generating the WebAuthn CredentialBefore you can encrypt anything, the user needs to create an authentication credential (passkey or security key) that supports the PRF (Pseudorandom Function) extension.Use age.webauthn.createCredential to prompt the user to register a new passkey or security key.TypeScriptimport * as age from "age-encryption";
+
+// This prompts the user to create and save a new passkey (or security key).
+// For a standard passkey (discoverable), omit the 'type' field.
+// For a security key (non-discoverable), set type: "security-key".
+async function createPasskey() {
+    try {
+        const identity = await age.webauthn.createCredential({
+            keyName: "My Local Age Encryption Key 🔑",
+            // type: "security-key" // Uncomment for non-discoverable security key
+        });
+        console.log("Passkey Identity created:", identity);
+        // NOTE: For non-discoverable security keys, you MUST save this
+        // 'identity' string (AGE-PLUGIN-FIDO2PRF-1...) for later use.
+        return identity;
+    } catch (error) {
+        console.error("Failed to create WebAuthn credential:", error);
+    }
+}
+2. Encrypting the FileTo encrypt, you'll create an Encrypter and add a WebAuthnRecipient.The WebAuthnRecipient signals to the age format that the file key should be wrapped symmetrically using the WebAuthn PRF mechanism.When encrypt() is called, the user will be prompted by the browser for their passkey authentication (e.g., face ID, fingerprint, PIN).TypeScriptimport { Encrypter, webauthn, armor } from "age-encryption";
+
+async function encryptFile(data: string | Uint8Array, identity?: string) {
+    const e = new Encrypter();
+
+    // 1. Create a WebAuthnRecipient.
+    // If you used a non-discoverable security key, you MUST provide the 'identity' string here.
+    const recipient = new webauthn.WebAuthnRecipient({ identity: identity });
+    e.addRecipient(recipient);
+
+    // 2. Encrypt the data.
+    // This action will trigger the browser's WebAuthn prompt.
+    const ciphertext = await e.encrypt(data);
+
+    // Optional: Encode the binary ciphertext to an ASCII-armored string for storage/transfer
+    const armoredCiphertext = armor.encode(ciphertext);
+
+    console.log("File encrypted and armored.");
+    return armoredCiphertext;
+}
+3. Decrypting the FileTo decrypt, you'll create a Decrypter and add a WebAuthnIdentity.The WebAuthnIdentity attempts to unwrap the symmetric key using the PRF mechanism.When decrypt() is called, the user is prompted again for authentication. If successful, the PRF provides the cryptographic secret needed to decrypt the $file$ $key$, which in turn decrypts the data.TypeScriptimport { Decrypter, webauthn, armor } from "age-encryption";
+
+async function decryptFile(armoredCiphertext: string, identity?: string) {
+    // 1. Decode the ASCII armor back to a binary Uint8Array
+    const decodedCiphertext = armor.decode(armoredCiphertext);
+
+    const d = new Decrypter();
+
+    // 2. Create a WebAuthnIdentity.
+    // If you used a non-discoverable security key, you MUST provide the 'identity' string here.
+    const identityObj = new webauthn.WebAuthnIdentity({ identity: identity });
+    d.addIdentity(identityObj);
+
+    // 3. Decrypt the data.
+    // This action will trigger the browser's WebAuthn prompt.
+    const decryptedData = await d.decrypt(decodedCiphertext, "text");
+
+    console.log("File decrypted successfully.");
+    return decryptedData;
+}
+Flow SummaryActionage-encryption ComponentBrowser ActionMechanismSetupcreateCredential()User authenticates to create passkey/key.Stores an unextractable FIDO2 key.EncryptWebAuthnRecipientUser authenticates.PRF is used to derive a symmetric key that wraps the $file$ $key$.DecryptWebAuthnIdentityUser authenticates.PRF is used to re-derive the same symmetric key to unwrap the $file$ $key$.This approach provides a strong, passwordless authentication mechanism for file encryption, leveraging the security features of the user's device.
+
+
+⚙️ How the typage WebAuthn Implementation Relates to PRF
+The typage WebAuthn feature provides an abstraction layer over the raw WebAuthn PRF mechanism to achieve the desired non-custodial, hardware-backed encryption:
+
+WebAuthn PRF Concept	typage Implementation	Role in Encryption
+Credential-Specific Internal Key	The root keying material stored in the authenticator (e.g., YubiKey).	The unextractable secret anchor. This never leaves the hardware.
+Salt (Input)	Derived internally from the age format header/metadata.	Used as input to the PRF to deterministically derive a unique symmetric key for the specific encrypted file.
+32-byte Derived Secret (Output)	The symmetric key returned by the WebAuthnIdentity or requested by the WebAuthnRecipient.	The symmetric wrap key used to encrypt the file key.
+Relying Party (RP) ID	The origin of the web application.	Ensures phishing resistance. The credential/PRF output is unique to (or "bound to") the specific site, preventing an attacker on a different domain from using the key.
+
+✅ Confirmed Benefits of the typage Approach
+The typage implementation satisfies all the requirements and benefits highlighted in the documentation:
+
+Hardware-Backed Key Derivation: Confirmed. When using a compatible device (like a YubiKey), the root secret remains in the tamper-resistant hardware; only the derived symmetric key is passed to the browser.
+
+Non-custodial & Zero Secret Knowledge: Confirmed. The server (Relying Party) provides no secret, and the key derivation occurs within the authenticator. The encrypted blob can be stored on the server, but the decryption key is only derivable via the user's authenticating device.
+
+Stateless: Confirmed. The symmetric key is derived on-demand during each encryption or decryption operation using the PRF mechanism.
+
+Phishing Resistant: Confirmed. The credential (and thus the PRF output) is bound to the Relying Party ID (origin) of the website, preventing its use on a malicious site.
+
+End-to-End Encryption: Confirmed. The key is never exposed to the server, enabling true client-side encryption of data before it ever leaves the browser.
+
+The approach of using WebAuthnRecipient for encryption and WebAuthnIdentity for decryption, as outlined in the previous response, remains the correct way to leverage this hardware-backed PRF feature within the age ecosystem.
+
+Consolidated WebAuthn PRF Encryption/Decryption Sequence (using typage)
+This consolidated code demonstrates the full, passwordless, hardware-backed encryption workflow using the age-encryption (typage) library's WebAuthn PRF feature.
+
+The example uses a single, non-custodial Passkey (discoverable credential) to secure the file. No passwords or extractable keys are used.
+
+TypeScript
+
+import * as age from "age-encryption";
+import { Encrypter, Decrypter, webauthn, armor } from "age-encryption";
+
+// --- 1. SETUP: Create the WebAuthn Credential (Passkey) ---
+// This only needs to be done once per user/device.
+async function createPasskey() {
+    console.log("--- 1. Creating Passkey (User Authentication Required) ---");
+    try {
+        // Prompts the user to register a passkey tied to the site's origin (RP ID).
+        // This process stores the unextractable root secret in the authenticator.
+        const identity = await webauthn.createCredential({
+            keyName: "Age Local File Encryption Key 🔑",
+        });
+        console.log("Passkey successfully created.");
+        // For a discoverable passkey, the identity string isn't strictly needed for later use,
+        // but it's returned by the function.
+        return identity;
+    } catch (error) {
+        console.error("❌ Failed to create WebAuthn credential:", error);
+        throw new Error("Passkey creation failed.");
+    }
+}
+
+// --- 2. ENCRYPTION: Lock the File using the Passkey's PRF ---
+async function encryptFile(data: string | Uint8Array) {
+    console.log("\n--- 2. Encrypting File (User Authentication Required) ---");
+    const e = new Encrypter();
+
+    // The WebAuthnRecipient tells age to wrap the file key symmetrically
+    // using a secret derived from the passkey's PRF.
+    e.addRecipient(new webauthn.WebAuthnRecipient());
+
+    // The encrypt call triggers the browser's WebAuthn prompt for user verification.
+    const ciphertext = await e.encrypt(data);
+
+    // Armor encodes the binary output into a secure, storable text format.
+    const armoredCiphertext = armor.encode(ciphertext);
+
+    console.log("File encrypted and ASCII-armored.");
+    console.log("Encrypted Blob (First 150 chars):", armoredCiphertext.substring(0, 150) + "...");
+
+    return armoredCiphertext;
+}
+
+// --- 3. DECRYPTION: Unlock the File using the Passkey's PRF ---
+async function decryptFile(armoredCiphertext: string) {
+    console.log("\n--- 3. Decrypting File (User Authentication Required) ---");
+
+    // Decode the armor back to the binary age format.
+    const decodedCiphertext = armor.decode(armoredCiphertext);
+
+    const d = new Decrypter();
+
+    // The WebAuthnIdentity requests the secret from the passkey's PRF using the
+    // metadata in the age header (the salt).
+    d.addIdentity(new webauthn.WebAuthnIdentity());
+
+    // The decrypt call triggers the browser's WebAuthn prompt.
+    // The resulting secret unlocks the file key.
+    const decryptedData = await d.decrypt(decodedCiphertext, "text");
+
+    console.log("File decrypted successfully.");
+    return decryptedData;
+}
+
+// --- EXECUTION ---
+async function runDemo() {
+    // 1. Create the Passkey
+    // This anchors the encryption capability to the user's authenticator.
+    await createPasskey();
+
+    const originalData = "This is my top secret data, secured by hardware-backed key derivation!";
+
+    // 2. Encrypt the data
+    const encryptedBlob = await encryptFile(originalData);
+
+    // 3. Decrypt the data
+    const decryptedData = await decryptFile(encryptedBlob);
+
+    console.log("\n--- Results ---");
+    console.log("Original Data: ", originalData);
+    console.log("Decrypted Data:", decryptedData);
+    console.log("Match Check:", originalData === decryptedData ? "SUCCESS (Data matches)" : "FAILURE (Data mismatch)");
+}
+
+// runDemo();

@@ -1,4 +1,4 @@
-import * as age from 'age-encryption';
+import { Encrypter, Decrypter, armor } from 'age-encryption';
 import { createWebAuthnRecipient, getWebAuthnIdentity } from '../auth/webauthn';
 
 export type RecipientType = 'webauthn' | 'x25519';
@@ -15,7 +15,7 @@ export async function encryptFile(
   fileData: Uint8Array | string,
   recipients: Recipient[]
 ): Promise<string> {
-  const encrypter = new age.Encrypter();
+  const encrypter = new Encrypter();
 
   // Add all recipients
   for (const recipient of recipients) {
@@ -36,7 +36,7 @@ export async function encryptFile(
   const ciphertext = await encrypter.encrypt(fileData);
 
   // ASCII-armor the ciphertext for easy storage/transfer
-  const armored = age.armor.encode(ciphertext);
+  const armored = armor.encode(ciphertext);
 
   return armored;
 }
@@ -50,9 +50,9 @@ export async function decryptFile(
   x25519PrivateKey?: string
 ): Promise<Uint8Array> {
   // Decode the armored ciphertext
-  const decoded = age.armor.decode(encryptedBlob);
+  const decoded = armor.decode(encryptedBlob);
 
-  const decrypter = new age.Decrypter();
+  const decrypter = new Decrypter();
 
   // Add WebAuthn identity if provided
   if (identity || !x25519PrivateKey) {
@@ -66,7 +66,7 @@ export async function decryptFile(
   }
 
   // Decrypt the data
-  const decrypted = await decrypter.decrypt(decoded, 'binary');
+  const decrypted = await decrypter.decrypt(decoded, 'uint8array');
 
   return decrypted;
 }
@@ -75,13 +75,13 @@ export async function decryptFile(
  * Encodes binary data to ASCII-armored format
  */
 export function armorEncode(ciphertext: Uint8Array): string {
-  return age.armor.encode(ciphertext);
+  return armor.encode(ciphertext);
 }
 
 /**
  * Decodes ASCII-armored data to binary
  */
 export function armorDecode(armored: string): Uint8Array {
-  return age.armor.decode(armored);
+  return armor.decode(armored);
 }
 

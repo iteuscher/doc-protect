@@ -16,6 +16,14 @@ export interface DownloadFileResponse {
   metadata: FileMetadata;
 }
 
+export interface ServerFile {
+  id: string;
+  ownerIdentity: string;
+  metadata: FileMetadata;
+  createdAt: number;
+  updatedAt: number;
+}
+
 /**
  * API client for Doc Protect server endpoints
  */
@@ -42,6 +50,20 @@ export class DocProtectAPI {
 
     if (!response.ok) {
       throw new Error(`Failed to upload file: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Lists files from the server (by owner identity)
+   */
+  async listFiles(ownerIdentity?: string): Promise<ServerFile[]> {
+    const params = ownerIdentity ? `?ownerIdentity=${encodeURIComponent(ownerIdentity)}` : '';
+    const response = await fetch(`${this.baseUrl}/api/files${params}`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to list files: ${response.statusText}`);
     }
 
     return response.json();

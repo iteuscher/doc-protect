@@ -1,0 +1,87 @@
+Hardware-Backed Key Derivation with WebAuthn PRF
+
+Non-custodial 
+Local browser based 
+Stateless
+Phishing resistant (key is determined for each site)
+Can be anchored in Hardware security with PRF (option for tamper resistant eg: yubikey)
+Zero secret knowledge given to server  
+The end to end encryption
+
+
+Definitions:
+Relying party — web application/server
+salt — provided by application (relying party)
+HMAC — hashing, eg HMAC-SHA-256
+tamper resistant hardware — prevents cloning, or extraction of keys by malware or physical access. TPM 2.0 and Yubikeys offer this benefit. 
+Non-custodial — the server doesn’t store or protect any secret data. 
+
+
+https://w3c.github.io/webauthn/#prf-extension
+
+10.1.4. Pseudo-random function extension (prf)
+This client registration extension and authentication extension allows a Relying Party to evaluate outputs from a pseudo-random function (PRF) associated with a credential. The PRFs provided by this extension map from BufferSources of any length to 32-byte BufferSources
+As a motivating example, PRF outputs could be used as symmetric keys to encrypt user data. Such encrypted data would be inaccessible without the ability to get assertions from the associated credential. By using the provision below to evaluate the PRF at two inputs in a single assertionoperation, the encryption key could be periodically rotated during assertions by choosing a fresh, random input and reencrypting under the new output. If the evaluation inputs are unpredictable then even an attacker who could satisfy user verification, and who had time-limited access to the authenticator, could not learn the encryption key without also knowing the correct PRF input
+
+
+
+https://github.com/w3c/webauthn/wiki/Explainer:-PRF-extension 
+A psuedo-random function (PRF) is a function that is externally indistinguishable from a random oracle for a computationally-bound attacker. A random oracle is a function like this:
+oracle_outputs = {}
+def random_oracle(x):
+  if x not in oracle_outputs:
+    value = generate_random_output()
+    oracle_outputs[x] = value
+
+  return oracle_outputs[x]
+Concretely, HMAC with a random key and strong hash function is a practical PRF.
+The WebAuthn prf extension allows sites to request that a WebAuthn authenticator create a PRF along with a credential and allows sites to query that PRF during assertions. Since this extension can be implementing by using the CTAP2 hmac-secret extension, and because many security keys support that, it should immediately have quite wide support. (At least in the subset of users who use security keys.)
+
+
+
+
+https://bitwarden.com/blog/prf-webauthn-and-its-role-in-passkeys/
+an extension for WebAuthn called the pseudo-random function or PRF. This article explores this emerging standard 
+
+What is the WebAuthn PRF extension, and how does it work?
+The WebAuthn PRF extension is an emerging standard that sources symmetric keys from an authenticator. When using an authenticator, such as a security key and a compatible browser, the WebAuthn PRF extension allows the authenticator to generate an encryption key associated with a particular site, often called the relying party. This key can then be provided to that site during authentication. For example, when a Bitwarden user registers a passkey from a hardware security key such as a YubiKey, Bitwarden can use that encryption key (associated with the passkey) to encrypt and decrypt the user’s vault data. Unlike a hardware security module (HSM), which controls access to an organization’s digital security key, the WebAuthn PRF extension does not store encryption keys on the hardware device. Instead, the extension uses input data (a salt) provided by the relying party to generate keys, a deterministic operation where the output will always be the same for a certain input. Many current platform authenticators do not implement specific security extensions, which is why the support for PRF in WebAuthn is significant.
+This differs from regular FIDO2 outputs (or signatures), which will always differ, regardless of the input or challenge because the PRF allows passkeys to be used for encryption operations.
+Benefits and use cases
+The PRF extension offers several benefits and use cases that enhance the security and functionality of WebAuthn. Here are some key advantages:
+Client-side encryption: One of the standout features of the PRF extension is its ability to enable client-side encryption. This allows users to retain full control over their data. Service providers can store encrypted data without ever needing to view it, ensuring that sensitive information remains confidential and secure.
+Data protection: By using the PRF salt as a basis for the HMAC-based Key Derivation Function (HKDF), the PRF extension provides an additional layer of security. This ensures that user data is protected from unauthorized access, making it a robust solution for data protection.
+Identity wallets: The PRF extension can derive encryption keys for identity wallets, enabling secure storage and management of identity data.
+Non-custodial digital wallets: With the PRF extension, there’s no need for server-side access to private keys. This enables non-custodial digital wallets to operate securely, giving users peace of mind that their private keys are safe from server-side breaches.
+Sensitive data protection: For platforms handling highly sensitive information, the PRF extension can enable client-side encryption of sensitive data.
+What does pseudo random function mean for you?
+When you use an authenticator such as security keys and a browser that supports the security key – as showcased in “Sign in and unlock Bitwarden with passkeys” – the WebAuthn PRF extension prompts the authenticator to generate an encryption key associated with a particular website. This key can then be provided to that application after authentication. 
+Here’s how it works. A Bitwarden user who registers a passkey from a compatible device can use that same passkey to encrypt and decrypt their vault, which means that with the WebAuthn PRF extension, users can decrypt their Bitwarden vaults without using a master password. The extension also extends additional convenience and security if you’re on a temporary device.
+How? First, let’s explore traditional authentication: If you use a YubiKey for 2FA, this YubiKey determines who Bitwarden servers will give your encrypted vault to and adds an additional layer of security on top of your master password. Your vault decrypts only after it has received authentication from YubiKey. In most cases, this is a secure setup.
+However, if a bad actor gains access to your encrypted vault by somehow bypassing 2FA, then the protection provided by YubiKey is void. This is because the YubiKey was used to help the Bitwarden server determine whether the encrypted vault should be shared with you, not as part of the encryption process. In this case, the Yubikey 2FA alone does not ensure the highest security standards, especially if a weak master password was used.
+WebAuthn PRF addresses this gap by replacing your master password with a strong encryption key, which is much harder to crack compared to passwords. It’s also important to note that the WebAuthn PRF extension is currently available in Chromium-based browsers, such as Google Chrome and Microsoft Edge.
+
+Build passkey authentication for your websites and applications with Bitwarden Passwordless.dev.
+
+
+
+
+https://developers.yubico.com/WebAuthn/Concepts/PRF_Extension/
+
+Developers face a fundamental challenge: how do you secure user data that needs to be encrypted on the client? Storing encryption keys on a server creates a massive target for attackers. Deriving keys from user passwords makes them vulnerable to phishing and offline cracking.
+This is where the FIDO2 and WebAuthn standards evolve beyond simple authentication. Today, we’re exploring one of their most transformative extensions: the Pseudo-Random Function (PRF). This extension allows your application to ask a YubiKey to derive a unique secret that can be used for symmetric key cryptography, all without the root keying material ever leaving the hardware.
+This is the new paradigm PRF enables: stateless, phishing-resistant, and anchored in hardware security.
+The open-source wwWallet project, a participant in Germany’s FUNKEinnovation challenge, is building a digital identity wallet aligned with the emerging European Digital Identity (EUDI) framework.
+A core component of its non-custodial security model is built on the WebAuthn PRF extension. The video below demonstrates how a user can log in and access their secure wallet using only a passkey. You can find more information and documentation at the wwWallet project page.
+The term "non-custodial" is key to understanding the wallet’s security. It means the service provider (the server) has zero knowledge of the user’s secrets and cannot decrypt their data. This is enabled by deriving the wallet’s encryption key on-demand from the user’s authenticator via PRF.
+Using a YubiKey as the authenticator provides the highest level of assurance for this architecture. The root secret used in the PRF calculation is protected by the YubiKey’s tamper-resistant secure element. This hardware-level protection guarantees that the key cannot be extracted, cloned, or compromised by malware on the client machine. The security of the user’s entire digital wallet is therefore anchored to the physical possession of their YubiKey, providing robust protection against both phishing attacks and server-side data breaches.
+What is WebAuthn PRF?
+At a high level, the WebAuthn PRF extension (prf) is a mechanism that allows a Relying Party (your web application) to request a 32-byte secret from a user’s FIDO2 authenticator during an authentication ceremony.
+Think of it as a secure, one-way calculator built into every modern YubiKey. Your application provides an input (salt), and the YubiKey uses its own unique, credential-specific internal key to compute a pseudo-random output (secret).
+[YubiKey's Internal Credential Key + Your Salt] -> HMAC-SHA-256 -> [32-byte Derived Secret]
+
+The critical security guarantee is that the YubiKey’s internal key—the root of this entire operation—never leaves the secure element. The derived secret is computed on-demand and passed to the browser, but the foundation of that secret remains securely stored in hardware.
+Why PRF is a Game-Changer for Developers
+This capability unlocks architectural patterns that were previously complex or insecure.
+Truly End-to-End Encrypted Applications: Build web apps where user data (documents, messages, notes) is encrypted in the browser before being sent to your cloud storage. Your server only ever holds encrypted blobs of data. The key to decrypt that data is derived from the user’s YubiKey each time they log in.
+…
+Secure Offline Access to Encrypted Data: Unlock access to local data or credentials without needing a network connection. This pattern, used by both Microsoft for Windows login and the wwWallet project, involves storing sensitive data in an encrypted "envelope" on the device. When the user presents their YubiKey, the PRF-derived secret is used to decrypt this envelope locally, granting secure offline access while ensuring the master secret never leaves the hardware.

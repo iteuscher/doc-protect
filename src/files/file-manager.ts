@@ -222,7 +222,9 @@ export async function downloadEncryptedFile(
  * Downloads a file to the user's device
  */
 export function downloadFile(data: Uint8Array, filename: string, mimeType?: string): void {
-  const blob = new Blob([data], { type: mimeType || 'application/octet-stream' });
+  // Create a new Uint8Array copy to ensure we have a regular ArrayBuffer
+  const buffer = new Uint8Array(data).buffer;
+  const blob = new Blob([buffer], { type: mimeType || 'application/octet-stream' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

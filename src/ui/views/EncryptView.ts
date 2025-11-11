@@ -5,7 +5,7 @@ import { readFileAsUint8Array, downloadFile } from '../../files/file-manager';
 import { encryptFile, Recipient } from '../../encryption/age-encryption';
 import { validatePublicKey } from '../../keys/key-manager';
 import { parseRecipientsFromURL } from '../../keys/key-manager';
-import { createWebAuthnRecipient } from '../../auth/webauthn';
+import { createPasskeyCredential, createSecurityKeyCredential } from '../../auth/webauthn';
 
 export class EncryptView {
   private container: HTMLDivElement;
@@ -128,18 +128,86 @@ export class EncryptView {
     const encryptButton = document.getElementById('encrypt-button') as HTMLButtonElement;
     if (encryptButton) {
       encryptButton.disabled = true;
-      encryptButton.textContent = 'Encrypting...';
+      encryptButton.textContent = 'Creating passkey...';
     }
 
     try {
+      // Step 1: Always create a new passkey for this file (registration flow)
+      // This passkey will be the owner key linked to the file
+      const keyName = prompt(
+        'Create a passkey to encrypt this file.\n\nThis passkey will be the owner key for this file.\n\nEnter a name for your passkey:',
+        `Owner key for ${this.selectedFile.name}`
+      );
+      
+      if (!keyName) {
+        // User cancelled passkey creation
+        if (encryptButton) {
+          encryptButton.disabled = false;
+          encryptButton.textContent = 'Encrypt File';
+        }
+        return;
+      }
+
+      let ownerIdentity: string;
+      try {
+        ownerIdentity = await createPasskeyCredential({ keyName });
+        console.log('Passkey created, identity:', ownerIdentity);
+      } catch (error) {
+        console.error('Failed to create passkey:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        // If PRF extension error, offer to use security key instead
+        if (errorMessage.includes('PRF extension')) {
+          const useSecurityKey = confirm(
+            errorMessage + '\n\n' +
+            'Would you like to try using a security key instead?\n\n' +
+            'Security keys (like YubiKey) support PRF on Windows.\n' +
+            'Click OK to use a security key, or Cancel to abort.'
+          );
+          
+          if (useSecurityKey) {
+            try {
+              ownerIdentity = await createSecurityKeyCredential({ keyName });
+              console.log('Security key created, identity:', ownerIdentity);
+            } catch (securityKeyError) {
+              alert(`Failed to create security key: ${securityKeyError instanceof Error ? securityKeyError.message : 'Unknown error'}\n\nPlease make sure you have a compatible security key connected.`);
+              if (encryptButton) {
+                encryptButton.disabled = false;
+                encryptButton.textContent = 'Encrypt File';
+              }
+              return;
+            }
+          } else {
+            if (encryptButton) {
+              encryptButton.disabled = false;
+              encryptButton.textContent = 'Encrypt File';
+            }
+            return;
+          }
+        } else {
+          alert(`Failed to create passkey: ${errorMessage}\n\nPlease try again.`);
+          if (encryptButton) {
+            encryptButton.disabled = false;
+            encryptButton.textContent = 'Encrypt File';
+          }
+          return;
+        }
+      }
+
+      // Step 2: Encrypt the file using the newly created passkey
+      if (encryptButton) {
+        encryptButton.textContent = 'Encrypting...';
+      }
+
       // Read file as Uint8Array
       const fileData = await readFileAsUint8Array(this.selectedFile);
 
       // Build recipients list
       const recipients: Recipient[] = [];
       
-      // Always add owner's WebAuthn recipient
-      recipients.push({ type: 'webauthn', value: '' });
+      // Add owner's WebAuthn recipient using the specific identity
+      // This ensures the file is encrypted with the passkey we just created
+      recipients.push({ type: 'webauthn', value: ownerIdentity });
       
       // Add X25519 recipients if provided
       for (const publicKey of this.recipientKeys) {
@@ -149,8 +217,8 @@ export class EncryptView {
       // Encrypt the file
       const encryptedBlob = await encryptFile(fileData, recipients);
 
-      // Display result
-      this.showEncryptResult(encryptedBlob, this.selectedFile.name);
+      // Display result with owner identity info
+      this.showEncryptResult(encryptedBlob, this.selectedFile.name, ownerIdentity);
     } catch (error) {
       console.error('Encryption error:', error);
       alert(`Encryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -162,7 +230,7 @@ export class EncryptView {
     }
   }
 
-  private showEncryptResult(encryptedBlob: string, originalFilename: string): void {
+  private showEncryptResult(encryptedBlob: string, originalFilename: string, ownerIdentity?: string): void {
     const resultSection = document.getElementById('encrypt-result');
     if (!resultSection) return;
 
@@ -172,6 +240,14 @@ export class EncryptView {
     const title = document.createElement('h3');
     title.textContent = 'Encryption Complete';
     resultSection.appendChild(title);
+
+    if (ownerIdentity) {
+      const ownerInfo = document.createElement('div');
+      ownerInfo.className = 'info';
+      ownerInfo.style.marginBottom = '1rem';
+      ownerInfo.innerHTML = `<strong>Owner Passkey Created:</strong><br>This file is encrypted with your passkey. Save this identity if you need to decrypt later: <code style="font-size: 11px; word-break: break-all;">${ownerIdentity.substring(0, 80)}...</code>`;
+      resultSection.appendChild(ownerInfo);
+    }
 
     const downloadButton = createButton('Download Encrypted File', () => {
       const blob = new Blob([encryptedBlob], { type: 'text/plain' });

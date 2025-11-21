@@ -1,0 +1,149 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { encryptFile, decryptFile } from '@/lib/crypto/encryption';
+import type { RecipientInfo, DocProtectManifest } from '@/lib/types/bundle';
+import type { WebAuthnCredential, FallbackCredential } from '@/lib/types/credential';
+
+const { createBundleMock, parseBundleMock, fallbackMocks } = vi.hoisted(() => {
+  return {
+    createBundleMock: vi.fn(async (manifest) => ({
+      bundleId: 'bundle-1',
+      blob: new Blob(),
+      manifest,
+      createdAt: new Date()
+    })),
+    parseBundleMock: vi.fn(),
+    fallbackMocks: {
+      encryptWithFallback: vi.fn(),
+      decryptWithFallback: vi.fn(),
+      isFallbackCredential: (credential: WebAuthnCredential | FallbackCredential) =>
+        credential.type === 'fallback-pbkdf2'
+    }
+  };
+});
+
+vi.mock('@/lib/crypto/bundle', () => ({
+  createBundle: createBundleMock,
+  parseBundle: parseBundleMock
+}));
+
+vi.mock('@/lib/auth/fallback', () => fallbackMocks);
+
+vi.mock('age-encryption', () => ({
+  Encrypter: class {
+    recipients: RecipientInfo[] = [];
+    addRecipient(recipient: RecipientInfo) {
+      this.recipients.push(recipient);
+    }
+    async encrypt(data: Uint8Array) {
+      return data;
+    }
+  },
+  Decrypter: class {
+    async decrypt() {
+      return new Uint8Array([104, 101, 108, 108, 111]);
+    }
+    addIdentity() {}
+  },
+  webauthn: {
+    WebAuthnRecipient: class {},
+    WebAuthnIdentity: class {}
+  }
+}));
+
+const fallbackCredential: FallbackCredential = {
+  credentialId: 'fallback-1',
+  type: 'fallback-pbkdf2',
+  keyName: 'Fallback Key',
+  userId: 'user@example.com',
+  userName: 'User',
+  prfEnabled: false,
+  createdAt: new Date().toISOString()
+};
+
+const fallbackManifest: DocProtectManifest = {
+  version: '1.0.0',
+  manifestVersion: 1,
+  createdAt: new Date().toISOString(),
+  fileInfo: {
+    name: 'hello.txt',
+    type: 'text/plain',
+    encryptedSize: 3,
+    originalSize: 3
+  },
+  encryptionInfo: {
+    algorithm: 'age-fallback',
+    format: 'age-encryption.org/v1',
+    recipients: [
+      { type: 'fallback-pbkdf2', credentialId: 'fallback-1', role: 'owner', salt: 'AAA=' }
+    ]
+  },
+  policy: {
+    uuid: '12345678-1234-5678-1234-567812345678',
+    version: 1,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    body: {
+      dataAttributes: [],
+      dissem: ['fallback-1']
+    },
+    abacRules: {
+      enabled: false,
+      rules: []
+    }
+  }
+};
+
+describe('Encryption engine', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('encrypts file in fallback mode with salt in manifest', async () => {
+    fallbackMocks.encryptWithFallback.mockResolvedValue({
+      encryptedData: new Uint8Array([1, 2, 3]),
+      salt: new Uint8Array([9, 9, 9])
+    });
+
+    const file = {
+      name: 'hello.txt',
+      type: 'text/plain',
+      size: 5,
+      arrayBuffer: async () => new TextEncoder().encode('hello').buffer
+    } as File;
+    await encryptFile({
+      file,
+      ownerCredential: fallbackCredential,
+      recipients: []
+    });
+
+    expect(fallbackMocks.encryptWithFallback).toHaveBeenCalled();
+    expect(createBundleMock).toHaveBeenCalled();
+    const manifest = createBundleMock.mock.calls[0][0];
+    expect(manifest.encryptionInfo.algorithm).toBe('age-fallback');
+    expect(manifest.warnings?.[0]).toContain('fallback');
+  });
+
+  it('decrypts fallback bundle with provided credential', async () => {
+    parseBundleMock.mockResolvedValue({
+      manifest: fallbackManifest,
+      encryptedPayload: new Uint8Array([1, 2, 3]),
+      bundleId: 'bundle-1'
+    });
+
+    fallbackMocks.decryptWithFallback.mockResolvedValue(new Uint8Array([1, 2, 3]));
+
+    const result = await decryptFile({
+      bundle: {
+        bundleId: 'bundle-1',
+        blob: new Blob(),
+        manifest: fallbackManifest,
+        createdAt: new Date()
+      },
+      credential: fallbackCredential
+    });
+
+    expect(result.fileName).toBe('hello.txt');
+    expect(fallbackMocks.decryptWithFallback).toHaveBeenCalled();
+  });
+});
+

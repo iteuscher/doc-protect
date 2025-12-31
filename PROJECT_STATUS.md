@@ -70,7 +70,6 @@
 ## Test Coverage
 
 **Unit Tests**: 8 test suites, 30+ tests  
-**Status**: All passing
 
 - `prf-detection.test.ts`: PRF support detection
 - `fallback.test.ts`: Fallback encryption methods

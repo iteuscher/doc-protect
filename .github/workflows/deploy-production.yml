@@ -1,0 +1,171 @@
+name: Deploy Production
+
+# NOTE: This workflow is a placeholder for a future phase.
+# Production deployment to AWS/GCP will be implemented when ready to move production from Vercel. 
+#For now, production deployments can be handled via Vercel's GitHub integration.
+# See the plan documentation for migration strategy.
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+
+jobs:
+  deploy-production-aws:
+    name: Deploy to AWS
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run full test suite
+        run: |
+          npm run type-check
+          npm run lint
+          npm test
+
+      - name: Build Next.js app
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      # AWS Amplify deployment
+      - name: Deploy to AWS Amplify
+        if: env.AWS_AMPLIFY_APP_ID != ''
+        id: deploy
+        run: |
+          echo "Deploying to AWS Amplify..."
+          # Add Amplify deployment commands here
+          # This is a placeholder - actual implementation depends on Amplify setup
+          echo "url=https://your-app.amplifyapp.com" >> $GITHUB_OUTPUT
+        env:
+          AWS_AMPLIFY_APP_ID: ${{ secrets.AWS_AMPLIFY_APP_ID }}
+
+      # AWS ECS/Fargate deployment (alternative)
+      - name: Build Docker image
+        if: env.AWS_ECR_REGISTRY != ''
+        run: |
+          docker build -t ${{ secrets.AWS_ECR_REGISTRY }}/doc-protect:${{ github.sha }} .
+          docker tag ${{ secrets.AWS_ECR_REGISTRY }}/doc-protect:${{ github.sha }} ${{ secrets.AWS_ECR_REGISTRY }}/doc-protect:latest
+
+      - name: Push to ECR
+        if: env.AWS_ECR_REGISTRY != ''
+        run: |
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ECR_REGISTRY }}
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/doc-protect:${{ github.sha }}
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/doc-protect:latest
+
+      - name: Update ECS service
+        if: env.AWS_ECS_CLUSTER != ''
+        run: |
+          aws ecs update-service \
+            --cluster ${{ secrets.AWS_ECS_CLUSTER }} \
+            --service ${{ secrets.AWS_ECS_SERVICE }} \
+            --force-new-deployment \
+            --region ${{ secrets.AWS_REGION }}
+
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests..."
+          # Add smoke test commands here
+          # curl -f https://your-production-url.com/health || exit 1
+
+  deploy-production-gcp:
+    name: Deploy to GCP
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run full test suite
+        run: |
+          npm run type-check
+          npm run lint
+          npm test
+
+      - name: Build Next.js app
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      # GCP Cloud Run deployment
+      - name: Build Docker image
+        if: env.GCP_ARTIFACT_REGISTRY != ''
+        run: |
+          docker build -t ${{ secrets.GCP_ARTIFACT_REGISTRY }}/doc-protect:${{ github.sha }} .
+          docker tag ${{ secrets.GCP_ARTIFACT_REGISTRY }}/doc-protect:${{ github.sha }} ${{ secrets.GCP_ARTIFACT_REGISTRY }}/doc-protect:latest
+
+      - name: Push to Artifact Registry
+        if: env.GCP_ARTIFACT_REGISTRY != ''
+        run: |
+          docker push ${{ secrets.GCP_ARTIFACT_REGISTRY }}/doc-protect:${{ github.sha }}
+          docker push ${{ secrets.GCP_ARTIFACT_REGISTRY }}/doc-protect:latest
+
+      - name: Deploy to Cloud Run
+        if: env.GCP_CLOUD_RUN_SERVICE != ''
+        id: deploy
+        run: |
+          gcloud run deploy ${{ secrets.GCP_CLOUD_RUN_SERVICE }} \
+            --image ${{ secrets.GCP_ARTIFACT_REGISTRY }}/doc-protect:${{ github.sha }} \
+            --region ${{ secrets.GCP_REGION }} \
+            --platform managed \
+            --allow-unauthenticated
+          echo "url=$(gcloud run services describe ${{ secrets.GCP_CLOUD_RUN_SERVICE }} --region ${{ secrets.GCP_REGION }} --format 'value(status.url)')" >> $GITHUB_OUTPUT
+
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests..."
+          # Add smoke test commands here
+          # curl -f ${{ steps.deploy.outputs.url }}/health || exit 1
+

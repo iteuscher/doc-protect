@@ -12,7 +12,23 @@ export default defineConfig({
     setupFiles: ['./vitest.setup.ts'],
     globals: true,
     mockReset: true,
-    include: ['tests/**/*.test.{ts,tsx}']
+    include: ['tests/**/*.test.{ts,tsx}'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html', 'lcov'],
+      exclude: [
+        'node_modules/',
+        'tests/',
+        '**/*.test.{ts,tsx}',
+        '**/*.spec.{ts,tsx}',
+        '**/vitest.setup.ts',
+        'next.config.ts',
+        'postcss.config.mjs',
+        'eslint.config.mjs',
+        'tailwind.config.*',
+        '**/*.d.ts'
+      ]
+    }
   }
 });
 

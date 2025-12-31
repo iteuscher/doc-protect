@@ -7,6 +7,8 @@ import {
 } from '@/lib/auth/fallback';
 
 const signatureBuffer = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]).buffer;
+// Mock authenticatorData (37 bytes: 32-byte RP ID hash + 1 byte flags + 4-byte counter)
+const authenticatorDataBuffer = new Uint8Array(37).fill(0).buffer;
 
 type NavigatorMocks = {
   create: ReturnType<typeof vi.fn>;
@@ -17,6 +19,7 @@ const setupNavigatorMocks = (): NavigatorMocks => {
   const create = vi.fn();
   const get = vi.fn().mockResolvedValue({
     response: {
+      authenticatorData: authenticatorDataBuffer,
       signature: signatureBuffer
     }
   });

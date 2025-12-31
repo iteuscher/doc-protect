@@ -29,7 +29,7 @@
     "@types/react-dom": "^19",
     "fake-indexeddb": "^6.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.0.3",
+    "eslint-config-next": "16.1.1",
     "jsdom": "^27.2.0",
     "tailwindcss": "^4",
     "typescript": "^5",

@@ -19,7 +19,8 @@ import type { DocProtectBundle } from '@/lib/types/bundle';
 import { getCachedPRFSupport, getPlatformPRFInfo } from '@/lib/auth/prf-detection';
 import {
   createCredential,
-  listUserCredentials
+  listUserCredentials,
+  selectExistingCredential
 } from '@/lib/auth/webauthn';
 import { encryptFile, decryptFile } from '@/lib/crypto/encryption';
 import { parseBundle } from '@/lib/crypto/bundle';
@@ -210,15 +211,11 @@ export default function Home() {
     try {
       let credential = workflow.selectedCredential;
 
-      // If using external credential mode, create credential on-the-fly
+      // If using external credential mode, select existing credential from password manager
       if (workflow.credentialMode === 'select-external' && !credential) {
-        const credName = workflow.customCredentialName.trim() || workflow.uploadedFile.name;
-        credential = await createCredential({
-          keyName: credName
-        });
-        // Optionally update the credentials list
-        const updated = await listUserCredentials();
-        setCredentials(updated);
+        setStatusMessage('Please select a passkey from your password manager...');
+        credential = await selectExistingCredential();
+        setStatusMessage('Passkey selected. Encrypting file...');
       }
 
       if (!credential) {

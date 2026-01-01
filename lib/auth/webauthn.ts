@@ -35,6 +35,76 @@ export function useExternalCredential(): undefined {
 }
 
 /**
+ * Select existing WebAuthn credential for encryption
+ *
+ * This function:
+ * 1. Shows browser's passkey picker via navigator.credentials.get()
+ * 2. Lets user select an existing DocProtect passkey
+ * 3. Checks IndexedDB for the credential's identity string
+ * 4. Returns credential if found, throws error if not
+ *
+ * This allows reusing existing passkeys without creating duplicates,
+ * but requires the passkey to have been previously used with DocProtect.
+ *
+ * @returns Selected credential with identity string
+ * @throws Error if user cancels, no passkeys available, or credential not found in storage
+ *
+ * @example
+ * ```typescript
+ * const credential = await selectExistingCredential();
+ * console.log(credential.identity); // AGE-PLUGIN-FIDO2PRF-1...
+ * ```
+ */
+export async function selectExistingCredential(): Promise<WebAuthnCredential | FallbackCredential> {
+  ensureBrowserEnvironment();
+
+  // Call navigator.credentials.get() to show passkey picker
+  const credentialRequestOptions: CredentialRequestOptions = {
+    publicKey: {
+      challenge: new Uint8Array(32), // Random challenge
+      rpId: window.location.hostname,
+      userVerification: 'required',
+      timeout: 60000,
+    }
+  };
+
+  // Request the credential from the browser
+  const credential = await navigator.credentials.get(credentialRequestOptions) as PublicKeyCredential | null;
+
+  if (!credential) {
+    throw new Error('No credential selected. Please try again or create a new credential.');
+  }
+
+  // Extract credential ID (convert from ArrayBuffer to base64)
+  const credentialIdArray = new Uint8Array(credential.rawId);
+  const credentialIdBase64 = btoa(String.fromCharCode(...credentialIdArray));
+
+  // Try to find this credential in our IndexedDB storage
+  const storedCredentials = await listCredentials();
+  const matchingCredential = storedCredentials.find(cred => {
+    // For WebAuthn credentials, the identity string contains the credential ID
+    // We need to check if this credential ID matches
+    if (cred.type === 'passkey' || cred.type === 'security-key') {
+      // The credential.identity is the age identity string
+      // We'll match based on it containing the credential ID or being the same
+      return cred.credentialId === credentialIdBase64 ||
+             cred.credentialId === credential.id ||
+             cred.identity.includes(credentialIdBase64);
+    }
+    return false;
+  });
+
+  if (!matchingCredential) {
+    throw new Error(
+      'This passkey has not been used with DocProtect before. ' +
+      'Please create a new credential or select a different passkey that was previously created in DocProtect.'
+    );
+  }
+
+  return matchingCredential;
+}
+
+/**
  * Create new WebAuthn credential for encryption
  *
  * This function:

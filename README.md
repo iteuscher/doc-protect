@@ -1,7 +1,6 @@
 # Doc Protect   
 
 [![CI](https://github.com/iteuscher/doc-protect/actions/workflows/ci.yml/badge.svg)](https://github.com/iteuscher/doc-protect/actions/workflows/ci.yml)
-[![E2E Tests](https://github.com/iteuscher/doc-protect/actions/workflows/e2e.yml/badge.svg)](https://github.com/iteuscher/doc-protect/actions/workflows/e2e.yml)
 [![Dependabot](https://img.shields.io/badge/dependabot-enabled-025e8c?logo=dependabot)](https://github.com/iteuscher/doc-protect/security/dependabot)
 
 

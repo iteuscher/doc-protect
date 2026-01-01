@@ -334,7 +334,11 @@ function base64UrlToArrayBuffer(base64Url: string): ArrayBuffer {
   if (typeof Buffer !== 'undefined') {
     // Node.js environment - use Buffer for base64 decoding
     const buffer = Buffer.from(padded, 'base64');
-    bytes = new Uint8Array(buffer);
+    // Copy buffer bytes to a new Uint8Array to ensure clean conversion
+    bytes = new Uint8Array(buffer.length);
+    for (let i = 0; i < buffer.length; i++) {
+      bytes[i] = buffer[i]!;
+    }
   } else {
     // Browser environment - use atob
     const binary = atob(padded);

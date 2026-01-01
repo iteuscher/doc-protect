@@ -625,7 +625,7 @@ export default function Home() {
                       Select from Google, iCloud, Bitwarden, 1Password, etc.
                     </button>
                     <p className="text-xs text-slate-400 mt-2">
-                      The credential doesn't need to be stored in this browser
+                      The credential doesn&apos;t need to be stored in this browser
                     </p>
                   </div>
 

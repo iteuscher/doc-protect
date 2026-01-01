@@ -130,7 +130,7 @@ export default function Home() {
     setErrorMessage(null);
   }, []);
 
-  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+  const handleDrop = (event: DragEvent<HTMLLabelElement>) => {
     event.preventDefault();
     const file = event.dataTransfer.files?.[0];
     if (file) handleFileUpload(file);

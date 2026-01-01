@@ -49,11 +49,9 @@ jobs:
     name: Unit Tests
     strategy:
       matrix:
-        # Ubuntu: test both Node versions (primary platform)
-        # Windows/macOS: test Node 20 only (resource-efficient)
+        # Ubuntu (primary platform)
+        # Windows/macOS: test Node 20 only
         include:
-          - os: ubuntu-latest
-            node-version: 18
           - os: ubuntu-latest
             node-version: 20
           - os: windows-latest

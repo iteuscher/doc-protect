@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
 import type { PRFSupport, WebAuthnCredential, FallbackCredential } from '@/lib/types/credential';
 import type { DocProtectBundle } from '@/lib/types/bundle';
-import { detectPRFSupport } from '@/lib/auth/prf-detection';
+import { getCachedPRFSupport, getPlatformPRFInfo } from '@/lib/auth/prf-detection';
 import {
   createCredential,
   listUserCredentials
@@ -38,15 +38,27 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [creatingCredential, setCreatingCredential] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [customCredentialName, setCustomCredentialName] = useState<string>('');
+  const [uploadedFileName, setUploadedFileName] = useState<string>('');
+  const [useExternalCred, setUseExternalCred] = useState(false);
 
   useEffect(() => {
     async function bootstrap() {
       try {
-        const [support, stored] = await Promise.all([
-          detectPRFSupport(),
-          listUserCredentials()
-        ]);
-        setPrfSupport(support);
+        // Use cached PRF support (no user prompt/credential creation)
+        const cachedSupport = getCachedPRFSupport();
+        const platformInfo = getPlatformPRFInfo();
+
+        // Set PRF support from cache or platform info (without testing)
+        setPrfSupport(cachedSupport ?? {
+          supported: platformInfo.likelySupported,
+          fallbackRequired: !platformInfo.likelySupported,
+          platform: platformInfo.platform,
+          detectedAt: new Date().toISOString()
+        });
+
+        // Load stored credentials
+        const stored = await listUserCredentials();
         setCredentials(stored);
         if (stored.length && !selectedCredentialId) {
           setSelectedCredentialId(stored[0].credentialId);
@@ -100,8 +112,9 @@ export default function Home() {
 
   const runDecryptionWorkflow = useCallback(
     async (file: File) => {
-      if (!selectedCredential) {
-        throw new Error('Select a credential to decrypt the bundle.');
+      // Allow decryption with external credentials (no stored credential selected)
+      if (!selectedCredential && !useExternalCred) {
+        throw new Error('Select a stored credential or choose "Use credential from password manager".');
       }
 
       setStatusMessage('Parsing bundle manifest …');
@@ -113,10 +126,15 @@ export default function Home() {
         createdAt: new Date()
       };
 
-      setStatusMessage('Authenticating with WebAuthn to decrypt …');
+      setStatusMessage(
+        useExternalCred
+          ? 'Select a passkey from your password manager to decrypt …'
+          : 'Authenticating with WebAuthn to decrypt …'
+      );
+
       const decrypted = await decryptFile({
         bundle,
-        credential: selectedCredential
+        credential: useExternalCred ? undefined : (selectedCredential || undefined)
       });
 
       // Convert Uint8Array to Blob
@@ -129,7 +147,7 @@ export default function Home() {
       });
       setStatusMessage('File decrypted. Download ready.');
     },
-    [selectedCredential]
+    [selectedCredential, useExternalCred]
   );
 
   const handleFileInput = useCallback(
@@ -139,6 +157,12 @@ export default function Home() {
       if (result?.url) {
         URL.revokeObjectURL(result.url);
         setResult(null);
+      }
+
+      // Set uploaded filename and suggest it as credential name
+      setUploadedFileName(file.name);
+      if (!customCredentialName) {
+        setCustomCredentialName(file.name);
       }
 
       setIsProcessing(true);
@@ -160,7 +184,7 @@ export default function Home() {
         setIsProcessing(false);
       }
     },
-    [runEncryptionWorkflow, runDecryptionWorkflow, result?.url]
+    [runEncryptionWorkflow, runDecryptionWorkflow, result?.url, customCredentialName]
   );
 
   const handleDrop = (event: DragEvent<HTMLLabelElement>) => {
@@ -179,15 +203,15 @@ export default function Home() {
     setCreatingCredential(true);
     setErrorMessage(null);
     try {
+      const keyName = customCredentialName || `DocProtect Key ${credentials.length + 1}`;
       const credential = await createCredential({
-        userId: 'user@example.com',
-        userName: 'DocProtect User',
-        keyName: `DocProtect Key ${credentials.length + 1}`
+        keyName
       });
       const updated = await listUserCredentials();
       setCredentials(updated);
       setSelectedCredentialId(credential.credentialId);
-      setStatusMessage('Credential created and stored locally.');
+      setStatusMessage(`Credential "${keyName}" created and stored locally.`);
+      setCustomCredentialName(''); // Reset for next time
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to create credential';
       setErrorMessage(message);
@@ -248,58 +272,104 @@ export default function Home() {
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-slate-200">Stored credentials</p>
+                <p className="text-sm font-medium text-slate-200">Credentials</p>
                 <p className="text-xs text-slate-400">
-                  Keys live only in this browser via IndexedDB. Export them manually for backup.
+                  Create new credentials or use existing ones from your password manager.
                 </p>
               </div>
-              <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleReset}
+                disabled={resetting}
+                className="rounded-full bg-red-500/20 border border-red-500/40 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/30 disabled:opacity-50"
+                title="Reset all stored data (credentials, bundles, PRF cache)"
+              >
+                {resetting ? 'Resetting …' : 'Reset All'}
+              </button>
+            </div>
+
+            {/* Create New Credential Section */}
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+              <p className="text-sm font-medium text-emerald-200 mb-2">Create New Credential</p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={customCredentialName}
+                  onChange={(e) => setCustomCredentialName(e.target.value)}
+                  placeholder={uploadedFileName || "Credential name (e.g., 'Secret Document')"}
+                  className="flex-1 rounded-lg bg-slate-800/50 border border-white/10 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500/50 focus:outline-none"
+                />
                 <button
                   type="button"
                   onClick={handleCreateCredential}
                   disabled={creatingCredential}
-                  className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50"
+                  className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50 whitespace-nowrap"
                 >
-                  {creatingCredential ? 'Creating …' : 'Create Credential'}
+                  {creatingCredential ? 'Creating …' : 'Create'}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  disabled={resetting}
-                  className="rounded-full bg-red-500/20 border border-red-500/40 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/30 disabled:opacity-50"
-                  title="Reset all stored data (credentials, bundles, PRF cache)"
-                >
-                  {resetting ? 'Resetting …' : 'Reset All'}
-                </button>
+              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                Creates a new passkey stored in this browser and your password manager.
+              </p>
+            </div>
+
+            {/* Stored Credentials Section */}
+            <div>
+              <p className="text-sm font-medium text-slate-200 mb-2">Stored Credentials</p>
+              <div className="flex flex-wrap gap-2">
+                {credentials.length === 0 && (
+                  <p className="text-sm text-slate-400">
+                    No credentials stored yet.
+                  </p>
+                )}
+                {credentials.map((credential) => (
+                  <label
+                    key={credential.credentialId}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 hover:bg-white/10 transition"
+                  >
+                    <input
+                      type="radio"
+                      name="credential"
+                      value={credential.credentialId}
+                      checked={selectedCredentialId === credential.credentialId && !useExternalCred}
+                      onChange={() => {
+                        setSelectedCredentialId(credential.credentialId);
+                        setUseExternalCred(false);
+                      }}
+                    />
+                    <span>
+                      {credential.keyName}{' '}
+                      <span className="text-xs text-slate-400">
+                        ({credential.type === 'fallback-pbkdf2' ? 'Fallback' : 'PRF'})
+                      </span>
+                    </span>
+                  </label>
+                ))}
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              {credentials.length === 0 && (
-                <p className="text-sm text-slate-400">
-                  No credentials stored yet. Create one to get started.
-                </p>
-              )}
-              {credentials.map((credential) => (
-                <label
-                  key={credential.credentialId}
-                  className="flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100"
-                >
-                  <input
-                    type="radio"
-                    name="credential"
-                    value={credential.credentialId}
-                    checked={selectedCredentialId === credential.credentialId}
-                    onChange={() => setSelectedCredentialId(credential.credentialId)}
-                  />
-                  <span>
-                    {credential.keyName}{' '}
-                    <span className="text-xs text-slate-400">
-                      ({credential.type === 'fallback-pbkdf2' ? 'Fallback' : 'PRF'})
-                    </span>
-                  </span>
-                </label>
-              ))}
+            {/* External Credential Option */}
+            <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useExternalCred}
+                  onChange={(e) => {
+                    setUseExternalCred(e.target.checked);
+                    if (e.target.checked) {
+                      setSelectedCredentialId('');
+                    }
+                  }}
+                  className="mt-1"
+                />
+                <div>
+                  <p className="text-sm font-medium text-blue-200">Use credential from password manager</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Select a passkey from Google, iCloud, Bitwarden, 1Password, etc. during decryption.
+                    The credential doesn't need to be stored in this browser.
+                  </p>
+                </div>
+              </label>
             </div>
           </div>
         </section>

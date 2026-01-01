@@ -22,19 +22,32 @@ import { detectPRFSupport } from './prf-detection';
 import { createFallbackCredential } from './fallback';
 
 /**
+ * Get credential for decryption without requiring IndexedDB storage
+ *
+ * Returns undefined to trigger browser's passkey picker during decryption.
+ * This allows users to use passkeys from their password manager without
+ * storing them in IndexedDB.
+ *
+ * @returns undefined (triggers browser passkey picker)
+ */
+export function useExternalCredential(): undefined {
+  return undefined;
+}
+
+/**
  * Create new WebAuthn credential for encryption
- * 
+ *
  * This function:
  * 1. Detects PRF support
  * 2. Creates appropriate credential type (PRF or fallback)
  * 3. Stores credential in IndexedDB
  * 4. Returns identity string for future use
- * 
+ *
  * @param options - Credential creation options
  * @returns Created credential with identity string
- * 
+ *
  * @throws Error if WebAuthn not supported or user cancels
- * 
+ *
  * @example
  * ```typescript
  * const credential = await createCredential({
@@ -43,16 +56,23 @@ import { createFallbackCredential } from './fallback';
  *   keyName: 'My DocProtect Key',
  *   type: 'passkey'  // or 'security-key'
  * });
- * 
+ *
  * console.log(credential.identity); // AGE-PLUGIN-FIDO2PRF-1...
  * ```
  */
 export async function createCredential(
-  options: CreateCredentialOptions
+  options: CreateCredentialOptions = {}
 ): Promise<WebAuthnCredential | FallbackCredential> {
   ensureBrowserEnvironment();
 
-  const { userId, userName, keyName, type = 'passkey', forceFallback = false } = options;
+  const {
+    userId = 'user@docprotect.local',
+    userName = 'DocProtect User',
+    keyName = `DocProtect Key ${new Date().toISOString()}`,
+    type = 'passkey',
+    forceFallback = false
+  } = options;
+
   const prfSupport = await detectPRFSupport();
   const shouldUseFallback = forceFallback || !prfSupport.supported;
 

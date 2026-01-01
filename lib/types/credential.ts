@@ -63,18 +63,18 @@ export interface WebAuthnCredential {
   }
   
   export interface CreateCredentialOptions {
-    /** User identifier (email) */
-    userId: string;
-    
-    /** User display name */
-    userName: string;
-    
-    /** Human-readable key name */
-    keyName: string;
-    
+    /** User identifier (email) - optional, defaults to 'user@docprotect.local' */
+    userId?: string;
+
+    /** User display name - optional, defaults to 'DocProtect User' */
+    userName?: string;
+
+    /** Human-readable key name - optional, will default to generated name */
+    keyName?: string;
+
     /** Credential type (defaults to passkey) */
     type?: 'passkey' | 'security-key';
-    
+
     /** Force fallback mode (for testing) */
     forceFallback?: boolean;
   }

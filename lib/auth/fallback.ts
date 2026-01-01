@@ -328,12 +328,28 @@ async function getAssertion(
 function base64UrlToArrayBuffer(base64Url: string): ArrayBuffer {
   const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
   const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
+  
+  // Decode base64 to bytes
+  let bytes: Uint8Array;
+  if (typeof Buffer !== 'undefined') {
+    // Node.js environment - use Buffer for base64 decoding
+    const buffer = Buffer.from(padded, 'base64');
+    bytes = new Uint8Array(buffer);
+  } else {
+    // Browser environment - use atob
+    const binary = atob(padded);
+    bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
   }
-  return bytes.buffer;
+  
+  // Always create a new, detached ArrayBuffer to ensure Web Crypto API compatibility
+  // This ensures the ArrayBuffer is not a view of another buffer
+  const arrayBuffer = new ArrayBuffer(bytes.length);
+  const view = new Uint8Array(arrayBuffer);
+  view.set(bytes);
+  return arrayBuffer;
 }
 
 /**

@@ -10,11 +10,11 @@ const SUPABASE_BUNDLE_BUCKET = process.env.SUPABASE_BUNDLE_BUCKET ?? 'bundles';
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = getSupabaseClient();
-    const { params } = context;
+    const params = await context.params;
 
     const { data, error } = await supabase
       .from('bundles')

@@ -328,32 +328,26 @@ async function getAssertion(
 function base64UrlToArrayBuffer(base64Url: string): ArrayBuffer {
   const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
   const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-  
+
   // Decode base64 to bytes
   let bytes: Uint8Array;
-  if (typeof Buffer !== 'undefined') {
+  if (typeof Buffer !== 'undefined' && typeof Buffer.from === 'function') {
     // Node.js environment - use Buffer for base64 decoding
     const buffer = Buffer.from(padded, 'base64');
-    // Copy buffer bytes to a new Uint8Array to ensure clean conversion
-    bytes = new Uint8Array(buffer.length);
-    for (let i = 0; i < buffer.length; i++) {
-      bytes[i] = buffer[i]!;
-    }
+    // Create a proper Uint8Array with its own ArrayBuffer
+    bytes = new Uint8Array(new ArrayBuffer(buffer.length));
+    bytes.set(buffer);
   } else {
     // Browser environment - use atob
     const binary = atob(padded);
-    bytes = new Uint8Array(binary.length);
+    bytes = new Uint8Array(new ArrayBuffer(binary.length));
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);
     }
   }
-  
-  // Always create a new, detached ArrayBuffer to ensure Web Crypto API compatibility
-  // This ensures the ArrayBuffer is not a view of another buffer
-  const arrayBuffer = new ArrayBuffer(bytes.length);
-  const view = new Uint8Array(arrayBuffer);
-  view.set(bytes);
-  return arrayBuffer;
+
+  // Return the ArrayBuffer directly from the Uint8Array
+  return bytes.buffer;
 }
 
 /**

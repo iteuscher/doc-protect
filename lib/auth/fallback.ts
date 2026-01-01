@@ -133,7 +133,12 @@ export async function deriveKeyFromAssertion(
   // the same key.
   
   // Decode credential ID to get raw bytes
-  const credentialIdBytes = base64UrlToArrayBuffer(credentialId);
+  const credentialIdArrayBuffer = base64UrlToArrayBuffer(credentialId);
+  
+  // Convert to Uint8Array for better compatibility with Node.js webcrypto
+  // crypto.subtle.importKey accepts ArrayBuffer, Buffer, TypedArray, or DataView
+  // Using Uint8Array explicitly works better in Node.js test environments
+  const credentialIdBytes = new Uint8Array(credentialIdArrayBuffer);
 
   // Use credential ID as the key material (deterministic)
   const keyMaterial = await crypto.subtle.importKey(
@@ -334,22 +339,24 @@ function base64UrlToArrayBuffer(base64Url: string): ArrayBuffer {
   if (typeof Buffer !== 'undefined') {
     // Node.js environment - use Buffer for base64 decoding
     const buffer = Buffer.from(padded, 'base64');
-    bytes = new Uint8Array(buffer);
+    // Create ArrayBuffer first, then Uint8Array view - ensures proper ArrayBuffer type
+    bytes = new Uint8Array(new ArrayBuffer(buffer.length));
+    // Copy buffer data into the Uint8Array
+    bytes.set(buffer);
   } else {
     // Browser environment - use atob
     const binary = atob(padded);
-    bytes = new Uint8Array(binary.length);
+    // Create ArrayBuffer first, then Uint8Array view
+    bytes = new Uint8Array(new ArrayBuffer(binary.length));
+    // Copy binary data into the Uint8Array
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);
     }
   }
   
-  // Always create a new, detached ArrayBuffer to ensure Web Crypto API compatibility
-  // This ensures the ArrayBuffer is not a view of another buffer
-  const arrayBuffer = new ArrayBuffer(bytes.length);
-  const view = new Uint8Array(arrayBuffer);
-  view.set(bytes);
-  return arrayBuffer;
+  // Return the underlying ArrayBuffer - guaranteed to be a proper ArrayBuffer instance
+  // (not SharedArrayBuffer) since we created it with new ArrayBuffer()
+  return bytes.buffer as ArrayBuffer;
 }
 
 /**

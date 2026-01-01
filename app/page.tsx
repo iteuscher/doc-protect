@@ -193,7 +193,12 @@ export default function Home() {
   };
 
   const handleProceedToEncryption = async () => {
-    if (!workflow.uploadedFile || !workflow.selectedCredential) {
+    if (!workflow.uploadedFile) {
+      setErrorMessage('No file uploaded');
+      return;
+    }
+
+    if (!workflow.selectedCredential && workflow.credentialMode !== 'select-external') {
       setErrorMessage('Please create or select a credential first');
       return;
     }
@@ -203,9 +208,26 @@ export default function Home() {
     setStatusMessage('Encrypting file...');
 
     try {
+      let credential = workflow.selectedCredential;
+
+      // If using external credential mode, create credential on-the-fly
+      if (workflow.credentialMode === 'select-external' && !credential) {
+        const credName = workflow.customCredentialName.trim() || workflow.uploadedFile.name;
+        credential = await createCredential({
+          keyName: credName
+        });
+        // Optionally update the credentials list
+        const updated = await listUserCredentials();
+        setCredentials(updated);
+      }
+
+      if (!credential) {
+        throw new Error('Failed to obtain credential for encryption');
+      }
+
       const bundle = await encryptFile({
         file: workflow.uploadedFile,
-        ownerCredential: workflow.selectedCredential
+        ownerCredential: credential
       });
 
       setWorkflow(prev => ({
@@ -331,11 +353,11 @@ export default function Home() {
 
     setWorkflow(prev => ({
       ...prev,
-      step: 'edit-bundle',
+      step: 'complete',
       sharingMode: 'download'
     }));
 
-    setStatusMessage('Bundle downloaded. You can now edit or create a new bundle.');
+    setStatusMessage('DPF file Created Successfully!');
   };
 
   const handleLinkSharing = () => {
@@ -417,17 +439,19 @@ export default function Home() {
               Reset All
             </button>
           </div>
-          {prfSupport && (
-            <p className="text-sm text-slate-400">
-              {prfSupport.supported
-                ? '✅ WebAuthn PRF supported on this device.'
-                : '⚠️ PRF not available. Fallback mode will be used.'}
+          {prfSupport && !prfSupport.supported && (
+            <p className="text-sm text-amber-400 flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              PRF not available. Fallback mode will be used.
             </p>
           )}
         </header>
 
-        {/* Progress Indicator */}
-        <div className="flex items-center gap-2 text-xs text-slate-400">
+        {/* Progress Indicator - Sticky */}
+        <div className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur-sm py-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 border-b border-white/5">
+          <div className="flex items-center gap-2 text-xs text-slate-400">
           <StepIndicator current={workflow.step} label="Upload" step="file-upload" />
           <div className="h-px flex-1 bg-slate-700" />
           <StepIndicator current={workflow.step} label="Identity" step="verify-identity" />
@@ -441,6 +465,7 @@ export default function Home() {
           )}
           <div className="h-px flex-1 bg-slate-700" />
           <StepIndicator current={workflow.step} label="Done" step="complete" />
+          </div>
         </div>
 
         {/* Status Message */}
@@ -452,13 +477,13 @@ export default function Home() {
           )}
         </div>
 
-        {/* SECTION 1: FILE UPLOAD */}
+        {/* FILE UPLOAD */}
         {workflow.step === 'file-upload' && (
           <section className="rounded-2xl border border-dashed border-emerald-400/40 bg-slate-900/30 p-8 text-center">
-            <div
+            <label
               onDrop={handleDrop}
               onDragOver={(e) => e.preventDefault()}
-              className="flex min-h-[280px] flex-col items-center justify-center gap-4"
+              className="flex min-h-[280px] flex-col items-center justify-center gap-4 cursor-pointer"
             >
               <div className="rounded-full bg-emerald-500/10 p-4">
                 <svg className="w-12 h-12 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -466,19 +491,19 @@ export default function Home() {
                 </svg>
               </div>
               <div>
-                <p className="text-lg font-medium text-white mb-2">Section 1: Upload a File</p>
+                <p className="text-lg font-medium text-white mb-2">Upload a File</p>
                 <p className="text-sm text-slate-400">
-                  Drag & drop or click to select a file to encrypt or decrypt
+                  Drag & drop or click anywhere to select a file to encrypt or decrypt
                 </p>
               </div>
-              <label className="cursor-pointer rounded-full bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400">
+              <div className="rounded-full bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400">
                 Choose File
-                <input type="file" className="hidden" onChange={handleFileChange} />
-              </label>
+              </div>
               <p className="text-xs text-slate-500">
                 .dpf files will be decrypted • Other files will be encrypted
               </p>
-            </div>
+              <input type="file" className="hidden" onChange={handleFileChange} />
+            </label>
           </section>
         )}
 
@@ -487,7 +512,7 @@ export default function Home() {
           <section className="space-y-4">
             <div className="rounded-xl border border-white/10 bg-slate-900/40 p-6">
               <h2 className="text-lg font-semibold text-white mb-4">
-                Section 2: Verify Your Identity
+                Verify Your Identity
               </h2>
 
               {/* File Info */}
@@ -511,7 +536,7 @@ export default function Home() {
                   {/* Create New Credential */}
                   <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
                     <p className="text-sm font-medium text-emerald-200 mb-3">
-                      Option 1: Create New Credential (Recommended)
+                      Create New Credential (Recommended)
                     </p>
                     <div className="flex gap-2">
                       <input
@@ -539,7 +564,7 @@ export default function Home() {
                   {credentials.length > 0 && (
                     <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
                       <p className="text-sm font-medium text-blue-200 mb-3">
-                        Option 2: Use Existing Credential
+                        Use Existing Credential
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {credentials.map((cred) => (
@@ -562,8 +587,28 @@ export default function Home() {
                     </div>
                   )}
 
+                  {/* External Credential - Encryption */}
+                  <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
+                    <p className="text-sm font-medium text-purple-200 mb-3">
+                      Use Password Manager
+                    </p>
+                    <button
+                      onClick={handleUseExternalCredential}
+                      className={`w-full rounded-lg border px-4 py-2 text-sm transition ${
+                        workflow.credentialMode === 'select-external'
+                          ? 'border-purple-400 bg-purple-500/20 text-purple-200'
+                          : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                      }`}
+                    >
+                      Select from Google, iCloud, Bitwarden, 1Password, etc.
+                    </button>
+                    <p className="text-xs text-slate-400 mt-2">
+                      Use an existing passkey from your password manager
+                    </p>
+                  </div>
+
                   {/* Proceed Button */}
-                  {workflow.selectedCredential && (
+                  {(workflow.selectedCredential || workflow.credentialMode === 'select-external') && (
                     <button
                       onClick={handleProceedToEncryption}
                       disabled={isProcessing}
@@ -586,7 +631,7 @@ export default function Home() {
                   {credentials.length > 0 && (
                     <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
                       <p className="text-sm font-medium text-blue-200 mb-3">
-                        Option 1: Use Stored Credential
+                        Use Stored Credential
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {credentials.map((cred) => (
@@ -612,7 +657,7 @@ export default function Home() {
                   {/* External Credential */}
                   <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
                     <p className="text-sm font-medium text-purple-200 mb-3">
-                      {credentials.length > 0 ? 'Option 2:' : 'Option 1:'} Use Password Manager
+                      Use Password Manager
                     </p>
                     <button
                       onClick={handleUseExternalCredential}
@@ -658,7 +703,7 @@ export default function Home() {
           <section className="space-y-4">
             <div className="rounded-xl border border-white/10 bg-slate-900/40 p-6">
               <h2 className="text-lg font-semibold text-white mb-4">
-                Section 3: Add Recipients (Optional)
+                Add Recipients (Optional)
               </h2>
 
               <p className="text-sm text-slate-300 mb-4">
@@ -736,7 +781,7 @@ export default function Home() {
           <section className="space-y-4">
             <div className="rounded-xl border border-white/10 bg-slate-900/40 p-6">
               <h2 className="text-lg font-semibold text-white mb-4">
-                Section 4: Share the Encrypted File
+                Share the Encrypted File
               </h2>
 
               <p className="text-sm text-slate-300 mb-6">
@@ -815,7 +860,7 @@ export default function Home() {
           <section className="space-y-4">
             <div className="rounded-xl border border-white/10 bg-slate-900/40 p-6">
               <h2 className="text-lg font-semibold text-white mb-4">
-                Section 5: Bundle Created Successfully!
+                Bundle Created Successfully!
               </h2>
 
               <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-4 mb-6">
@@ -896,6 +941,50 @@ export default function Home() {
           </section>
         )}
 
+        {/* COMPLETE (Encryption) */}
+        {workflow.step === 'complete' && !workflow.decryptedData && workflow.encryptedBundle && (
+          <section className="space-y-4">
+            <div className="rounded-xl border border-white/10 bg-slate-900/40 p-6">
+              <h2 className="text-lg font-semibold text-white mb-4">
+                Encryption Complete!
+              </h2>
+
+              <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-4 mb-6">
+                <p className="text-sm text-emerald-200">
+                  ✅ Your DPF file has been created and downloaded successfully.
+                </p>
+              </div>
+
+              <p className="text-sm text-slate-300 mb-4">
+                What would you like to do next?
+              </p>
+
+              <div className="space-y-2">
+                <button
+                  onClick={handleStartOver}
+                  className="w-full rounded-lg bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400"
+                >
+                  Encrypt Another File
+                </button>
+
+                <button
+                  disabled
+                  className="w-full rounded-lg border border-white/10 bg-slate-800/50 px-4 py-3 text-sm font-semibold text-slate-400 transition disabled:opacity-50"
+                >
+                  Change Recipients (Coming soon)
+                </button>
+
+                <button
+                  disabled
+                  className="w-full rounded-lg border border-white/10 bg-slate-800/50 px-4 py-3 text-sm font-semibold text-slate-400 transition disabled:opacity-50"
+                >
+                  Re-encrypt Bundle (Coming soon)
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* SECTION 6: DETAILED INFO (Collapsible) */}
         <section className="rounded-xl border border-white/10 bg-slate-900/40 overflow-hidden">
           <button
@@ -903,7 +992,7 @@ export default function Home() {
             className="w-full flex items-center justify-between p-4 text-left transition hover:bg-slate-800/50"
           >
             <span className="text-sm font-medium text-slate-200">
-              Section 6: Detailed Technical Information
+              Technical Info
             </span>
             <svg
               className={`w-5 h-5 text-slate-400 transition-transform ${showDetailedInfo ? 'rotate-180' : ''}`}

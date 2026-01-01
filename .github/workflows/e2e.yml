@@ -2,7 +2,7 @@ name: E2E Tests
 
 on:
   pull_request:
-    branches: [main, staging]
+    branches: [main, stage]
   schedule:
     # Run nightly at 2 AM UTC
     - cron: '0 2 * * *'

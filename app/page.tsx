@@ -564,15 +564,9 @@ export default function Home() {
           <p className="text-sm font-medium text-slate-200">Status</p>
           <p className="text-sm text-slate-300 mt-1">{statusMessage}</p>
           {workflow.uploadedFile && (
-            <div className="mt-3 pt-3 border-t border-white/5">
-              <p className="text-xs font-medium text-slate-200 mb-1">Uploaded File:</p>
-              <p className="text-sm text-slate-300">{workflow.uploadedFile.name}</p>
-              <p className="text-xs text-slate-400 mt-1">
-                {workflow.fileType === 'dpf'
-                  ? '🔒 This is an encrypted DPF file (will be decrypted)'
-                  : '📄 This is a standard file (will be encrypted)'}
-              </p>
-            </div>
+            <p className="text-xs text-slate-400 mt-2">
+              {workflow.fileType === 'dpf' ? '🔒' : '📄'} {workflow.uploadedFile.name}
+            </p>
           )}
           {errorMessage && (() => {
             // Check if error message contains "See:" or "See " followed by a URL

@@ -75,6 +75,7 @@ export default function Home() {
   const [statusMessage, setStatusMessage] = useState<string>('Ready to upload a file');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showDetailedInfo, setShowDetailedInfo] = useState(false);
+  const [showAlternativeOptions, setShowAlternativeOptions] = useState(false);
 
   // Bootstrap
   useEffect(() => {
@@ -169,6 +170,11 @@ export default function Home() {
       return;
     }
 
+    if (!workflow.uploadedFile) {
+      setErrorMessage('No file uploaded');
+      return;
+    }
+
     setIsProcessing(true);
     setErrorMessage(null);
     try {
@@ -185,7 +191,25 @@ export default function Home() {
         credentialMode: 'create'
       }));
 
-      setStatusMessage(`Credential "${workflow.customCredentialName}" created successfully.`);
+      setStatusMessage(`Credential "${workflow.customCredentialName}" created successfully. Encrypting file...`);
+
+      // Automatically proceed to encryption for standard files
+      if (workflow.fileType === 'standard') {
+        const bundle = await encryptFile({
+          file: workflow.uploadedFile,
+          ownerCredential: credential
+        });
+
+        setWorkflow(prev => ({
+          ...prev,
+          step: 'recipients',
+          encryptedBundle: bundle,
+          selectedCredential: credential,
+          credentialMode: 'create'
+        }));
+
+        setStatusMessage('File encrypted. Add recipients or proceed to sharing.');
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to create credential';
       setErrorMessage(message);
@@ -539,6 +563,17 @@ export default function Home() {
         <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
           <p className="text-sm font-medium text-slate-200">Status</p>
           <p className="text-sm text-slate-300 mt-1">{statusMessage}</p>
+          {workflow.uploadedFile && (
+            <div className="mt-3 pt-3 border-t border-white/5">
+              <p className="text-xs font-medium text-slate-200 mb-1">Uploaded File:</p>
+              <p className="text-sm text-slate-300">{workflow.uploadedFile.name}</p>
+              <p className="text-xs text-slate-400 mt-1">
+                {workflow.fileType === 'dpf'
+                  ? '🔒 This is an encrypted DPF file (will be decrypted)'
+                  : '📄 This is a standard file (will be encrypted)'}
+              </p>
+            </div>
+          )}
           {errorMessage && (() => {
             // Check if error message contains "See:" or "See " followed by a URL
             const seeUrlMatch = errorMessage.match(/^(.+?)\s+See:?\s+(https?:\/\/[^\s]+)/);
@@ -547,7 +582,7 @@ export default function Home() {
               // Remove trailing periods and whitespace, then add a single period
               const cleanedMessage = mainMessage.trim().replace(/\.+$/, '');
               return (
-                <div className="text-sm text-red-400 mt-1">
+                <div className="text-sm text-red-400 mt-2 border-t border-red-500/20 pt-2">
                   <span>{cleanedMessage}. </span>
                   <a
                     href={url}
@@ -563,7 +598,7 @@ export default function Home() {
             // Fallback: render any URLs as clickable links
             const parts = errorMessage.split(/(https?:\/\/[^\s]+)/);
             return (
-              <div className="text-sm text-red-400 mt-1">
+              <div className="text-sm text-red-400 mt-2 border-t border-red-500/20 pt-2">
                 {parts.map((part, index) => {
                   if (part.match(/^https?:\/\//)) {
                     return (
@@ -623,17 +658,6 @@ export default function Home() {
                 Verify Your Identity
               </h2>
 
-              {/* File Info */}
-              <div className="mb-6 rounded-lg bg-slate-800/50 p-4 border border-white/5">
-                <p className="text-sm font-medium text-slate-200 mb-1">Uploaded File:</p>
-                <p className="text-sm text-slate-300">{workflow.uploadedFile.name}</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  {workflow.fileType === 'dpf'
-                    ? '🔒 This is an encrypted DPF file (will be decrypted)'
-                    : '📄 This is a standard file (will be encrypted)'}
-                </p>
-              </div>
-
               {/* ENCRYPTION PATH */}
               {workflow.fileType === 'standard' && (
                 <div className="space-y-4">
@@ -668,51 +692,75 @@ export default function Home() {
                     </p>
                   </div>
 
-                  {/* Select Existing Credential */}
-                  {credentials.length > 0 && (
-                    <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
-                      <p className="text-sm font-medium text-blue-200 mb-3">
-                        Use Existing Credential
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {credentials.map((cred) => (
+                  {/* Dropdown for Alternative Options */}
+                  <div className="rounded-lg border border-white/10 bg-slate-800/30">
+                    <button
+                      onClick={() => setShowAlternativeOptions(!showAlternativeOptions)}
+                      className="w-full flex items-center justify-between p-4 text-left transition hover:bg-slate-800/50"
+                    >
+                      <span className="text-sm font-medium text-slate-300">
+                        Use Existing Credential / Password Manager
+                      </span>
+                      <svg
+                        className={`w-5 h-5 text-slate-400 transition-transform ${showAlternativeOptions ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {showAlternativeOptions && (
+                      <div className="border-t border-white/10 p-4 space-y-4">
+                        {/* Select Existing Credential */}
+                        {credentials.length > 0 && (
+                          <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+                            <p className="text-sm font-medium text-blue-200 mb-3">
+                              Use Existing Credential
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {credentials.map((cred) => (
+                                <button
+                                  key={cred.credentialId}
+                                  onClick={() => handleSelectCredential(cred)}
+                                  className={`rounded-lg border px-3 py-2 text-sm transition ${
+                                    workflow.selectedCredential?.credentialId === cred.credentialId
+                                      ? 'border-blue-400 bg-blue-500/20 text-blue-200'
+                                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                                  }`}
+                                >
+                                  {cred.keyName}{' '}
+                                  <span className="text-xs opacity-70">
+                                    ({cred.type === 'fallback-pbkdf2' ? 'Fallback' : 'PRF'})
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* External Credential - Encryption */}
+                        <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
+                          <p className="text-sm font-medium text-purple-200 mb-3">
+                            Use Password Manager
+                          </p>
                           <button
-                            key={cred.credentialId}
-                            onClick={() => handleSelectCredential(cred)}
-                            className={`rounded-lg border px-3 py-2 text-sm transition ${
-                              workflow.selectedCredential?.credentialId === cred.credentialId
-                                ? 'border-blue-400 bg-blue-500/20 text-blue-200'
+                            onClick={handleUseExternalCredential}
+                            className={`w-full rounded-lg border px-4 py-2 text-sm transition ${
+                              workflow.credentialMode === 'select-external'
+                                ? 'border-purple-400 bg-purple-500/20 text-purple-200'
                                 : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
                             }`}
                           >
-                            {cred.keyName}{' '}
-                            <span className="text-xs opacity-70">
-                              ({cred.type === 'fallback-pbkdf2' ? 'Fallback' : 'PRF'})
-                            </span>
+                            Select from Google, iCloud, Bitwarden, 1Password, etc.
                           </button>
-                        ))}
+                          <p className="text-xs text-slate-400 mt-2">
+                            Use an existing DPF passkey from your password manager
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  )}
-
-                  {/* External Credential - Encryption */}
-                  <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
-                    <p className="text-sm font-medium text-purple-200 mb-3">
-                      Use Password Manager
-                    </p>
-                    <button
-                      onClick={handleUseExternalCredential}
-                      className={`w-full rounded-lg border px-4 py-2 text-sm transition ${
-                        workflow.credentialMode === 'select-external'
-                          ? 'border-purple-400 bg-purple-500/20 text-purple-200'
-                          : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                      }`}
-                    >
-                      Select from Google, iCloud, Bitwarden, 1Password, etc.
-                    </button>
-                    <p className="text-xs text-slate-400 mt-2">
-                      Use an existing passkey from your password manager
-                    </p>
+                    )}
                   </div>
 
                   {/* Proceed Button */}
@@ -777,9 +825,6 @@ export default function Home() {
                     >
                       Select from Google, iCloud, Bitwarden, 1Password, etc.
                     </button>
-                    <p className="text-xs text-slate-400 mt-2">
-                      The credential doesn&apos;t need to be stored in this browser
-                    </p>
                   </div>
 
                   {/* Proceed Button */}

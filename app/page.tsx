@@ -693,7 +693,7 @@ export default function Home() {
                       className="w-full flex items-center justify-between p-4 text-left transition hover:bg-slate-800/50"
                     >
                       <span className="text-sm font-medium text-slate-300">
-                        Use Existing Credential / Password Manager
+                        Use Existing Credential
                       </span>
                       <svg
                         className={`w-5 h-5 text-slate-400 transition-transform ${showAlternativeOptions ? 'rotate-180' : ''}`}
@@ -737,7 +737,7 @@ export default function Home() {
                         {/* External Credential - Encryption */}
                         <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
                           <p className="text-sm font-medium text-purple-200 mb-3">
-                            Use Password Manager
+                            Select from Password Manager
                           </p>
                           <button
                             onClick={handleUseExternalCredential}

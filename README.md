@@ -77,7 +77,17 @@ npm run type-check    # Type checking
 npm run lint          # Linting
 ```
 
-For detailed testing instructions, see [LOCAL_TESTING.md](./LOCAL_TESTING.md).
+#### E2E Testing
+
+```bash
+# Install Playwright browsers (REQUIRED - only need to do this once)
+npx playwright install
+
+# Run E2E tests
+npm run test:e2e
+```
+
+For detailed testing instructions, see [LOCAL_TESTING.md](./LOCAL_TESTING.md) and [tests/e2e/README.md](./tests/e2e/README.md).
 
 ## How It Works
 

@@ -61,13 +61,20 @@ Tests user interface and user experience features:
 
 ### Prerequisites
 
+**IMPORTANT:** You must install Playwright browsers before running E2E tests!
+
 ```bash
-# Install dependencies
+# 1. Install dependencies
 npm install
 
-# Install Playwright browsers
+# 2. Install Playwright browsers (REQUIRED - tests will fail without this!)
 npx playwright install
+
+# 3. For CI environments, install browser dependencies
+npx playwright install --with-deps
 ```
+
+> **Note:** If you see errors like `Executable doesn't exist at /root/.cache/ms-playwright/...`, you forgot to run `npx playwright install`. Run it now and try again.
 
 ### Run All Tests
 
@@ -255,10 +262,31 @@ await page.locator('button:has-text("Delete")').click();
 
 ### Tests Failing Locally
 
-1. **Ensure dev server is running**: The tests will start it automatically, but verify port 3000 is available
-2. **Clear browser cache**: `npx playwright clean`
-3. **Update browsers**: `npx playwright install`
-4. **Check WebAuthn support**: Some tests require virtual authenticator support
+1. **Browser not installed error**: If you see `Executable doesn't exist at /root/.cache/ms-playwright/...`
+   ```bash
+   # Run this command to install browsers
+   npx playwright install
+   ```
+
+2. **Ensure dev server is running**: The tests will start it automatically, but verify port 3000 is available
+   ```bash
+   # Check if something is using port 3000
+   lsof -i :3000
+   # Kill the process if needed
+   kill -9 <PID>
+   ```
+
+3. **Clear browser cache**:
+   ```bash
+   npx playwright clean
+   ```
+
+4. **Update browsers**:
+   ```bash
+   npx playwright install
+   ```
+
+5. **Check WebAuthn support**: Some tests require virtual authenticator support (should work in all modern browsers)
 
 ### Timeout Errors
 

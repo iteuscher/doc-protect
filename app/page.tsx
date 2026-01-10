@@ -563,7 +563,7 @@ export default function Home() {
         <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
           <p className="text-sm font-medium text-slate-200">Status</p>
           <p className="text-sm text-slate-300 mt-1">{statusMessage}</p>
-          {workflow.uploadedFile && (
+          {workflow.uploadedFile && workflow.step !== 'recipients' && workflow.step !== 'sharing' && workflow.step !== 'complete' && (
             <p className="text-xs text-slate-400 mt-2">
               {workflow.fileType === 'dpf' ? '🔒' : '📄'} {workflow.uploadedFile.name}
             </p>

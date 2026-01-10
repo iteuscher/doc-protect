@@ -47,8 +47,6 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        // Enable WebAuthn virtual authenticator
-        permissions: ['clipboard-read', 'clipboard-write'],
       },
     },
 
@@ -56,7 +54,6 @@ export default defineConfig({
       name: 'firefox',
       use: {
         ...devices['Desktop Firefox'],
-        permissions: ['clipboard-read', 'clipboard-write'],
       },
     },
 
@@ -64,7 +61,6 @@ export default defineConfig({
       name: 'webkit',
       use: {
         ...devices['Desktop Safari'],
-        permissions: ['clipboard-read', 'clipboard-write'],
       },
     },
 

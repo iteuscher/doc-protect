@@ -275,7 +275,6 @@ test.describe('Encryption Workflow', () => {
     await expect(createButton).toBeDisabled();
 
     // Enter name, button should be enabled
-    const credentialInput = page.locator('input[placeholder="Credential name"]');
     await credentialInput.fill('Valid Name');
     await expect(createButton).toBeEnabled();
   });

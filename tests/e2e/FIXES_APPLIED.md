@@ -162,6 +162,78 @@ await expect(page.locator('text=Use Existing Credential')).toBeVisible();
 
 ---
 
+### ✅ Issue #4: CDP Not Available in Firefox/WebKit (FIXED)
+**Date:** January 10, 2026
+**Commit:** `fix: limit WebAuthn tests to Chromium only (CDP not available in Firefox/WebKit)` (c881661)
+
+**Problem:**
+All tests failing in Firefox and WebKit with:
+```
+Error: browserContext.newCDPSession: CDP session is only available in Chromium
+```
+
+**Root Cause:**
+WebAuthn virtual authenticator requires Chrome DevTools Protocol (CDP), which is only supported in Chromium browsers. Firefox and WebKit do not support CDP.
+
+**Impact:**
+- All 88 tests failed in Firefox
+- All 88 tests failed in WebKit
+- Only Chromium tests were able to run
+
+**Solution:**
+Configured browser-specific test execution:
+
+1. **Chromium**: Runs all tests (264 total)
+   - encryption-workflow.spec.ts
+   - decryption-workflow.spec.ts
+   - credential-management.spec.ts
+   - recipients-management.spec.ts
+   - ui-and-ux.spec.ts
+
+2. **Firefox & WebKit**: Run UI tests only (25 tests each)
+   - ui-and-ux.spec.ts only
+   - WebAuthn setup made conditional on `browserName === 'chromium'`
+
+Updated `playwright.config.ts`:
+```typescript
+{
+  name: 'firefox',
+  use: { ...devices['Desktop Firefox'] },
+  testMatch: '**/ui-and-ux.spec.ts', // Only run UI tests
+},
+{
+  name: 'webkit',
+  use: { ...devices['Desktop Safari'] },
+  testMatch: '**/ui-and-ux.spec.ts', // Only run UI tests
+},
+```
+
+Updated `tests/e2e/ui-and-ux.spec.ts`:
+```typescript
+test.beforeEach(async ({ page: testPage, context, browserName }) => {
+  page = testPage;
+
+  // Enable WebAuthn only for Chromium
+  if (browserName === 'chromium') {
+    const client = await context.newCDPSession(page);
+    // ... WebAuthn setup
+  }
+
+  await page.goto('/');
+});
+```
+
+**Files Changed:**
+- `playwright.config.ts`
+- `tests/e2e/ui-and-ux.spec.ts`
+
+**Rationale:**
+- WebAuthn functionality (encryption/decryption) requires actual passkey support, which can only be mocked via CDP
+- UI tests don't require WebAuthn to verify visual elements and interactions
+- This approach balances comprehensive testing on Chromium with cross-browser UI validation
+
+---
+
 ## Remaining Work
 
 ### Potential Issues to Monitor
@@ -188,10 +260,11 @@ await expect(page.locator('text=Use Existing Credential')).toBeVisible();
 - [x] Document browser installation
 - [x] Fix "highlight current step" strict mode violation
 - [x] Fix "show clear action labels" conditional visibility issue
+- [x] Remove DocProtect title check (page title changed)
+- [x] Fix CDP availability issue (limit WebAuthn tests to Chromium)
 - [ ] Run full test suite across all browsers
 - [ ] Verify 90%+ pass rate
 - [ ] Address any remaining strict mode violations
-- [ ] Fix any WebAuthn-related issues
 - [ ] Optimize flaky tests if any
 
 ---
@@ -315,6 +388,8 @@ await expect(page.locator('div')).toBeVisible();
 5. `docs: update test analysis with clipboard permissions root cause` (0704385)
 6. `fix: resolve strict mode violations in progress indicator tests` (5e84381)
 7. `fix: resolve remaining strict mode violations and conditional visibility issues` (74d0f49)
+8. `fix: remove DocProtect title check as page title has changed` (583d024)
+9. `fix: limit WebAuthn tests to Chromium only (CDP not available in Firefox/WebKit)` (c881661)
 
 ---
 

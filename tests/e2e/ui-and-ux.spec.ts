@@ -109,9 +109,11 @@ test.describe('UI and UX Features', () => {
 
   test.describe('Progress Indicator', () => {
     test('should show progress steps', async () => {
-      await expect(page.locator('text=Upload')).toBeVisible();
-      await expect(page.locator('text=Identity')).toBeVisible();
-      await expect(page.locator('text=Done')).toBeVisible();
+      // Target progress steps in the sticky progress indicator container
+      const progressBar = page.locator('[class*="sticky"]').first();
+      await expect(progressBar.getByText('Upload', { exact: true })).toBeVisible();
+      await expect(progressBar.getByText('Identity', { exact: true })).toBeVisible();
+      await expect(progressBar.getByText('Done', { exact: true })).toBeVisible();
     });
 
     test('should highlight current step', async () => {
@@ -136,9 +138,10 @@ test.describe('UI and UX Features', () => {
         buffer: Buffer.from('test'),
       });
 
-      // Should show Recipients and Share steps
-      await expect(page.locator('text=Recipients')).toBeVisible();
-      await expect(page.locator('text=Share')).toBeVisible();
+      // Should show Recipients and Share steps in progress bar
+      const progressBar = page.locator('[class*="sticky"]').first();
+      await expect(progressBar.getByText('Recipients', { exact: true })).toBeVisible();
+      await expect(progressBar.getByText('Share', { exact: true })).toBeVisible();
     });
   });
 

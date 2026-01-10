@@ -10,27 +10,37 @@
 
 The E2E test suite was analyzed based on your Playwright Test Report. The **good news** is that the test infrastructure is working correctly - **55 tests passed successfully**. The failures are primarily due to an environment setup issue, not problems with the test code itself.
 
-## Root Cause: Browser Installation
+## Root Causes Identified
 
-**All 209 failures** are caused by the same issue:
+### 1. Browser Installation (Initial Issue)
 
+Some tests failed with:
 ```
 Error: browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1200/
 ```
 
-### What This Means
+**Solution:** Run `npx playwright install`
 
-Playwright browsers were not installed before running the tests. This is a one-time setup step that must be completed before E2E tests can run.
+### 2. Unsupported Clipboard Permissions (Primary Issue)
 
-### Solution
+**The majority of failures** were caused by unsupported clipboard permissions in Firefox and WebKit:
 
-Run this command once:
-
-```bash
-npx playwright install
+```
+Error: browser.newContext: Unknown permission: clipboard-read
+Error: browserContext.newPage: Unknown permission: clipboard-write
 ```
 
-After installing the browsers, all 264 tests should be able to run properly.
+**Root Cause:** The Playwright config included `permissions: ['clipboard-read', 'clipboard-write']` for all browsers, but these permissions are only supported in Chromium. Firefox and WebKit don't support them.
+
+**Solution:** Removed clipboard permissions from the config (they weren't needed since DocProtect doesn't use clipboard functionality).
+
+### What This Means
+
+- **Chromium tests:** Were failing due to browser installation
+- **Firefox tests:** Were failing due to clipboard permissions
+- **WebKit tests:** Were failing due to clipboard permissions
+
+After fixing both issues, all 264 tests should run properly across all browsers.
 
 ## Test Suite Breakdown
 
@@ -167,9 +177,31 @@ After browser installation, expect:
 - **Total execution time:** 5-10 minutes (for 264 tests across 3 browsers)
 - **Average test duration:** Variable (some tests are quick UI checks, others involve full workflows)
 
+## Fixes Applied
+
+### ✅ Fix #1: Removed Clipboard Permissions
+**Commit:** `fix: remove unsupported clipboard permissions from Playwright config`
+
+Removed the following from `playwright.config.ts`:
+```typescript
+permissions: ['clipboard-read', 'clipboard-write']
+```
+
+This was causing Firefox and WebKit tests to fail immediately.
+
+### ✅ Fix #2: Documentation Updates
+**Commits:**
+- `docs: improve E2E testing setup instructions and troubleshooting`
+- `docs: add E2E test analysis report`
+
+Added clear instructions about browser installation and troubleshooting.
+
 ## Conclusion
 
-**The E2E test suite is well-designed and functional.** The failures you're seeing are entirely due to missing browser binaries, not test code issues. Once you run `npx playwright install`, the tests should work as expected.
+**The E2E test suite is well-designed and functional.** The failures were caused by two configuration issues:
+
+1. **Clipboard permissions** - Not supported in Firefox/WebKit (now fixed ✅)
+2. **Browser installation** - One-time setup step (instructions added ✅)
 
 The fact that 55 tests passed proves:
 1. The test infrastructure is correct
@@ -177,4 +209,18 @@ The fact that 55 tests passed proves:
 3. The integration with Playwright works
 4. WebAuthn mocking is functional
 
-Simply install the browsers and re-run the tests. If you encounter any failures after that, we can address them as they're likely to be specific test logic or UI changes that need updating.
+### Next Steps
+
+1. **Install browsers** (if you haven't already):
+   ```bash
+   npx playwright install
+   ```
+
+2. **Run tests with the fixes**:
+   ```bash
+   npm run test:e2e
+   ```
+
+3. **Expected outcome**: All or most tests should now pass across all three browsers (Chromium, Firefox, WebKit)
+
+If you still encounter failures after these fixes, they'll be actual test logic issues that we can address individually.

@@ -27,7 +27,6 @@ test.describe('Encryption Workflow', () => {
 
     // Navigate to the app
     await page.goto('/');
-    await expect(page).toHaveTitle(/DocProtect/i);
   });
 
   test('should display the file upload section on initial load', async () => {

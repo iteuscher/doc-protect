@@ -251,7 +251,7 @@ test.describe('Credential Management', () => {
     await expect(page.locator('text=Encrypt File →')).toBeVisible();
 
     // Status should update
-    await expect(page.locator('text=password manager')).toBeVisible();
+    await expect(page.locator('text=password manager').first()).toBeVisible();
   });
 
   test('should show helpful text for creating new credential', async () => {

@@ -174,11 +174,12 @@ test.describe('Recipients Management', () => {
     const removeButton = page.locator(`text=${email}`).locator('..').locator('button:has-text("Remove")');
     await removeButton.click();
 
-    // Should be removed from list
-    await expect(page.locator(`text=${email}`)).not.toBeVisible();
-
     // Status should update
     await expect(page.locator(`text=Removed ${email}`)).toBeVisible();
+
+    // Should be removed from recipient list (check that no Remove button exists with this email)
+    const recipientItem = page.locator(`text=${email}`).locator('..').locator('button:has-text("Remove")');
+    await expect(recipientItem).not.toBeVisible();
   });
 
   test('should allow pressing Enter to add recipient', async () => {
@@ -286,7 +287,7 @@ test.describe('Recipients Management', () => {
 
     // Go to sharing
     await page.locator('button:has-text("Continue to Sharing →")').click();
-    await expect(page.locator('text=Share the Encrypted File')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Share the Encrypted File' })).toBeVisible();
 
     // Check technical info - recipient should still be there
     await page.locator('button:has-text("Technical Info")').click();
@@ -353,7 +354,7 @@ test.describe('Recipients Management', () => {
     await expect(page.locator('text=Please enter a valid email address')).not.toBeVisible();
 
     // Valid email should be added
-    await expect(page.locator('text=valid@example.com')).toBeVisible();
+    await expect(page.locator('text=valid@example.com').first()).toBeVisible();
   });
 
   test('should show both skip and continue buttons', async () => {

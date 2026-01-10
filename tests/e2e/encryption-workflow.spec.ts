@@ -30,7 +30,7 @@ test.describe('Encryption Workflow', () => {
   });
 
   test('should display the file upload section on initial load', async () => {
-    await expect(page.getByRole('heading', { name: 'Upload a File' })).toBeVisible();
+    await expect(page.locator('text=Upload a File').first()).toBeVisible();
     await expect(page.locator('text=Drag & drop or click anywhere to select')).toBeVisible();
     await expect(page.locator('text=Ready to upload a file')).toBeVisible();
   });
@@ -237,7 +237,8 @@ test.describe('Encryption Workflow', () => {
     await page.locator('button:has-text("Skip Recipients")').click();
 
     // Share step should be active
-    await expect(page.locator('[class*="emerald"]', { hasText: 'Share' })).toBeVisible();
+    const progressBar = page.locator('[class*="sticky"]').first();
+    await expect(progressBar.locator('[class*="emerald"]', { hasText: 'Share' })).toBeVisible();
   });
 
   test('should display PRF support information', async () => {
@@ -266,6 +267,10 @@ test.describe('Encryption Workflow', () => {
 
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
+    // Clear any pre-filled value first
+    const credentialInput = page.locator('input[placeholder="Credential name"]');
+    await credentialInput.clear();
+
     // Try to create without entering name (button should be disabled)
     const createButton = page.locator('button:has-text("Create")');
     await expect(createButton).toBeDisabled();
@@ -293,7 +298,7 @@ test.describe('Encryption Workflow', () => {
     await page.locator('text=← Back to File Upload').click();
 
     // Should be back at file upload
-    await expect(page.getByRole('heading', { name: 'Upload a File' })).toBeVisible();
+    await expect(page.locator('text=Upload a File').first()).toBeVisible();
     await expect(page.locator('text=Ready to upload a file')).toBeVisible();
   });
 });

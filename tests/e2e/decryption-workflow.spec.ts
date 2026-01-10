@@ -128,7 +128,7 @@ test.describe('Decryption Workflow', () => {
     await expect(page.locator('text=Decrypt File →')).toBeVisible();
 
     // Should show helpful message
-    await expect(page.locator('text=password manager')).toBeVisible();
+    await expect(page.locator('text=password manager').first()).toBeVisible();
   });
 
   test('should complete full encrypt-then-decrypt cycle', async () => {
@@ -145,7 +145,7 @@ test.describe('Decryption Workflow', () => {
 
     // Start over for decryption
     await page.locator('button:has-text("Encrypt Another File")').click();
-    await expect(page.locator('text=Upload a File')).toBeVisible();
+    await expect(page.locator('text=Upload a File').first()).toBeVisible();
 
     // === DECRYPTION PHASE ===
     // Upload the DPF file we just created
@@ -220,7 +220,7 @@ test.describe('Decryption Workflow', () => {
     await page.locator('text=← Back to File Upload').click();
 
     // Should be at upload screen
-    await expect(page.locator('text=Upload a File')).toBeVisible();
+    await expect(page.locator('text=Upload a File').first()).toBeVisible();
   });
 
   test('should display decryption progress in status', async () => {
@@ -238,7 +238,7 @@ test.describe('Decryption Workflow', () => {
     await page.locator('button:has-text("Select from Google, iCloud")').click();
 
     // Status should update
-    await expect(page.locator('text=password manager')).toBeVisible();
+    await expect(page.locator('text=password manager').first()).toBeVisible();
   });
 
   test('should show correct step indicator for decryption', async () => {
@@ -274,6 +274,9 @@ test.describe('Decryption Workflow', () => {
     await page.locator('button:has-text("Encrypt Another File")').click();
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(dpfPath!);
+
+    // Wait for identity screen
+    await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
     await page.locator(`button:has-text("${credentialName}")`).first().click();
     await page.locator('button:has-text("Decrypt File →")').click();

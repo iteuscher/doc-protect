@@ -117,8 +117,9 @@ test.describe('UI and UX Features', () => {
     });
 
     test('should highlight current step', async () => {
-      // Upload step should be active initially
-      const uploadStep = page.locator('[class*="emerald"]', { hasText: 'Upload' });
+      // Upload step should be active initially in the progress bar
+      const progressBar = page.locator('[class*="sticky"]').first();
+      const uploadStep = progressBar.locator('[class*="emerald"]', { hasText: 'Upload' });
       await expect(uploadStep).toBeVisible();
     });
 
@@ -371,7 +372,7 @@ test.describe('UI and UX Features', () => {
 
       // Action buttons should have clear labels
       await expect(page.locator('text=Create New Credential (Recommended)')).toBeVisible();
-      await expect(page.locator('text=Use Existing Credential')).toBeVisible();
+      // Note: "Use Existing Credential" only appears when there are stored credentials
       await expect(page.locator('text=Use Password Manager')).toBeVisible();
     });
 

@@ -8,21 +8,23 @@ import { test, expect, type Page } from '@playwright/test';
 test.describe('UI and UX Features', () => {
   let page: Page;
 
-  test.beforeEach(async ({ page: testPage, context }) => {
+  test.beforeEach(async ({ page: testPage, context, browserName }) => {
     page = testPage;
 
-    // Enable WebAuthn virtual authenticator
-    const client = await context.newCDPSession(page);
-    await client.send('WebAuthn.enable');
-    await client.send('WebAuthn.addVirtualAuthenticator', {
-      options: {
-        protocol: 'ctap2',
-        transport: 'internal',
-        hasResidentKey: true,
-        hasUserVerification: true,
-        isUserVerified: true,
-      },
-    });
+    // Enable WebAuthn virtual authenticator (Chromium only - CDP not available in Firefox/WebKit)
+    if (browserName === 'chromium') {
+      const client = await context.newCDPSession(page);
+      await client.send('WebAuthn.enable');
+      await client.send('WebAuthn.addVirtualAuthenticator', {
+        options: {
+          protocol: 'ctap2',
+          transport: 'internal',
+          hasResidentKey: true,
+          hasUserVerification: true,
+          isUserVerified: true,
+        },
+      });
+    }
 
     await page.goto('/');
   });

@@ -55,6 +55,8 @@ export default defineConfig({
       use: {
         ...devices['Desktop Firefox'],
       },
+      // Only run UI tests on Firefox (WebAuthn CDP not supported)
+      testMatch: '**/ui-and-ux.spec.ts',
     },
 
     {
@@ -62,6 +64,8 @@ export default defineConfig({
       use: {
         ...devices['Desktop Safari'],
       },
+      // Only run UI tests on WebKit (WebAuthn CDP not supported)
+      testMatch: '**/ui-and-ux.spec.ts',
     },
 
     /* Test against mobile viewports. */

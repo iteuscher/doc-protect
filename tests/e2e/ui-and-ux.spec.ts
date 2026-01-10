@@ -251,7 +251,8 @@ test.describe('UI and UX Features', () => {
       await expect(page.locator('text=Share the Encrypted File')).toBeVisible();
     }
 
-    test('should show all sharing options with icons', async () => {
+    test('should show all sharing options with icons', async ({ browserName }) => {
+      test.skip(browserName !== 'chromium', 'WebAuthn required - Chromium only');
       await navigateToSharing();
 
       // Download option
@@ -267,7 +268,8 @@ test.describe('UI and UX Features', () => {
       await expect(page.locator('text=Upload to Supabase/S3 and get a shareable link')).toBeVisible();
     });
 
-    test('should show coming soon badges for unavailable options', async () => {
+    test('should show coming soon badges for unavailable options', async ({ browserName }) => {
+      test.skip(browserName !== 'chromium', 'WebAuthn required - Chromium only');
       await navigateToSharing();
 
       // Should show "Coming soon" for cloud and link options
@@ -275,7 +277,8 @@ test.describe('UI and UX Features', () => {
       expect(comingSoonCount).toBeGreaterThan(0);
     });
 
-    test('should disable unavailable sharing options', async () => {
+    test('should disable unavailable sharing options', async ({ browserName }) => {
+      test.skip(browserName !== 'chromium', 'WebAuthn required - Chromium only');
       await navigateToSharing();
 
       // Cloud and link buttons should be disabled
@@ -286,7 +289,8 @@ test.describe('UI and UX Features', () => {
       await expect(linkButton).toBeDisabled();
     });
 
-    test('should enable download option', async () => {
+    test('should enable download option', async ({ browserName }) => {
+      test.skip(browserName !== 'chromium', 'WebAuthn required - Chromium only');
       await navigateToSharing();
 
       const downloadButton = page.locator('button:has-text("Download Bundle")');
@@ -317,7 +321,8 @@ test.describe('UI and UX Features', () => {
   });
 
   test.describe('Loading and Processing States', () => {
-    test('should show processing indicator when encrypting', async () => {
+    test('should show processing indicator when encrypting', async ({ browserName }) => {
+      test.skip(browserName !== 'chromium', 'WebAuthn required - Chromium only');
       const fileInput = page.locator('input[type="file"]');
       await fileInput.setInputFiles({
         name: 'test.txt',

@@ -311,7 +311,7 @@ test.describe('Decryption Workflow', () => {
 
     // Should show stored credentials
     await expect(page.locator('text=Stored Credentials')).toBeVisible();
-    await expect(page.locator(`text=${credentialName}`)).toBeVisible();
+    await expect(page.locator(`text=${credentialName}`).first()).toBeVisible();
   });
 
   test('should validate credential selection before decryption', async () => {

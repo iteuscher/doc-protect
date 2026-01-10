@@ -69,12 +69,13 @@ test.describe('Credential Management', () => {
     await navigateToCredentialScreen();
 
     const createButton = page.locator('button:has-text("Create")');
+    const credentialInput = page.locator('input[placeholder="Credential name"]');
 
-    // Initially should be disabled (empty name)
+    // Clear any pre-filled value first
+    await credentialInput.clear();
     await expect(createButton).toBeDisabled();
 
     // Add name, should enable
-    const credentialInput = page.locator('input[placeholder="Credential name"]');
     await credentialInput.fill('Test');
     await expect(createButton).toBeEnabled();
 

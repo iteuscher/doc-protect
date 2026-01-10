@@ -30,7 +30,7 @@ test.describe('Encryption Workflow', () => {
   });
 
   test('should display the file upload section on initial load', async () => {
-    await expect(page.locator('text=Upload a File')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Upload a File' })).toBeVisible();
     await expect(page.locator('text=Drag & drop or click anywhere to select')).toBeVisible();
     await expect(page.locator('text=Ready to upload a file')).toBeVisible();
   });
@@ -201,7 +201,7 @@ test.describe('Encryption Workflow', () => {
     await expect(page.locator('text=Encrypt File →')).toBeVisible();
 
     // Verify status message
-    await expect(page.locator('text=password manager')).toBeVisible();
+    await expect(page.locator('text=password manager').first()).toBeVisible();
   });
 
   test('should show progress indicator throughout workflow', async () => {
@@ -210,7 +210,8 @@ test.describe('Encryption Workflow', () => {
     const credentialName = 'Progress Credential';
 
     // Initial state - Upload step should be active
-    await expect(page.locator('[class*="emerald"]', { hasText: 'Upload' })).toBeVisible();
+    const progressBar = page.locator('[class*="sticky"]').first();
+    await expect(progressBar.locator('[class*="emerald"]', { hasText: 'Upload' })).toBeVisible();
 
     // Upload file
     const fileInput = page.locator('input[type="file"]');
@@ -292,7 +293,7 @@ test.describe('Encryption Workflow', () => {
     await page.locator('text=← Back to File Upload').click();
 
     // Should be back at file upload
-    await expect(page.locator('text=Upload a File')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Upload a File' })).toBeVisible();
     await expect(page.locator('text=Ready to upload a file')).toBeVisible();
   });
 });

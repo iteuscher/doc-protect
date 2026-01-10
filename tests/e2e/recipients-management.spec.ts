@@ -79,7 +79,7 @@ test.describe('Recipients Management', () => {
     await page.locator('button:has-text("Add")').click();
 
     // Should show recipient in list
-    await expect(page.locator(`text=${email}`)).toBeVisible();
+    await expect(page.locator(`text=${email}`).first()).toBeVisible();
 
     // Input should be cleared
     await expect(emailInput).toHaveValue('');
@@ -102,12 +102,12 @@ test.describe('Recipients Management', () => {
     for (const email of recipients) {
       await emailInput.fill(email);
       await page.locator('button:has-text("Add")').click();
-      await expect(page.locator(`text=${email}`)).toBeVisible();
+      await expect(page.locator(`text=${email}`).first()).toBeVisible();
     }
 
     // All recipients should be visible
     for (const email of recipients) {
-      await expect(page.locator(`text=${email}`)).toBeVisible();
+      await expect(page.locator(`text=${email}`).first()).toBeVisible();
     }
 
     // Should show "Recipients:" label
@@ -149,7 +149,7 @@ test.describe('Recipients Management', () => {
     // Add first time
     await emailInput.fill(email);
     await page.locator('button:has-text("Add")').click();
-    await expect(page.locator(`text=${email}`)).toBeVisible();
+    await expect(page.locator(`text=${email}`).first()).toBeVisible();
 
     // Try to add again
     await emailInput.fill(email);
@@ -168,7 +168,7 @@ test.describe('Recipients Management', () => {
     // Add recipient
     await emailInput.fill(email);
     await page.locator('button:has-text("Add")').click();
-    await expect(page.locator(`text=${email}`)).toBeVisible();
+    await expect(page.locator(`text=${email}`).first()).toBeVisible();
 
     // Remove recipient
     const removeButton = page.locator(`text=${email}`).locator('..').locator('button:has-text("Remove")');
@@ -192,7 +192,7 @@ test.describe('Recipients Management', () => {
     await emailInput.press('Enter');
 
     // Should be added
-    await expect(page.locator(`text=${email}`)).toBeVisible();
+    await expect(page.locator(`text=${email}`).first()).toBeVisible();
   });
 
   test('should not add empty email', async () => {
@@ -237,7 +237,7 @@ test.describe('Recipients Management', () => {
     await page.locator('button:has-text("Continue to Sharing →")').click();
 
     // Should navigate to sharing
-    await expect(page.locator('text=Share the Encrypted File')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Share the Encrypted File' })).toBeVisible();
     await expect(page.locator('text=Choose how to share the encrypted file')).toBeVisible();
   });
 
@@ -266,7 +266,7 @@ test.describe('Recipients Management', () => {
 
     // Should show recipients in workflow state
     await expect(page.locator('text=Current Workflow State')).toBeVisible();
-    await expect(page.locator('text=Recipients:')).toBeVisible();
+    await expect(page.locator('text=Recipients:').first()).toBeVisible();
 
     // Recipients should be listed
     const recipientText = recipients.join(', ');
@@ -282,7 +282,7 @@ test.describe('Recipients Management', () => {
     // Add recipient
     await emailInput.fill(email);
     await page.locator('button:has-text("Add")').click();
-    await expect(page.locator(`text=${email}`)).toBeVisible();
+    await expect(page.locator(`text=${email}`).first()).toBeVisible();
 
     // Go to sharing
     await page.locator('button:has-text("Continue to Sharing →")').click();
@@ -290,7 +290,7 @@ test.describe('Recipients Management', () => {
 
     // Check technical info - recipient should still be there
     await page.locator('button:has-text("Technical Info")').click();
-    await expect(page.locator(`text=${email}`)).toBeVisible();
+    await expect(page.locator(`text=${email}`).first()).toBeVisible();
   });
 
   test('should show recipients count when multiple added', async () => {
@@ -306,7 +306,7 @@ test.describe('Recipients Management', () => {
 
     // Should show all recipients in the list
     for (const email of recipients) {
-      await expect(page.locator(`text=${email}`)).toBeVisible();
+      await expect(page.locator(`text=${email}`).first()).toBeVisible();
     }
 
     // Count should match
@@ -331,7 +331,7 @@ test.describe('Recipients Management', () => {
       await page.locator('button:has-text("Add")').click();
 
       // Should be added successfully
-      await expect(page.locator(`text=${email}`)).toBeVisible();
+      await expect(page.locator(`text=${email}`).first()).toBeVisible();
     }
   });
 

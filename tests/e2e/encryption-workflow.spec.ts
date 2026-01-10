@@ -237,7 +237,6 @@ test.describe('Encryption Workflow', () => {
     await page.locator('button:has-text("Skip Recipients")').click();
 
     // Share step should be active
-    const progressBar = page.locator('[class*="sticky"]').first();
     await expect(progressBar.locator('[class*="emerald"]', { hasText: 'Share' })).toBeVisible();
   });
 

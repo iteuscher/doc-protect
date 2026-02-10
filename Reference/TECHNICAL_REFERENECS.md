@@ -1,4 +1,4 @@
-# DocProtect Technical References
+# Rico Technical References
 
 ## Core Specifications
 
@@ -49,7 +49,7 @@
 ### JSZip
 - **npm**: https://www.npmjs.com/package/jszip
 - **API Docs**: https://stuk.github.io/jszip/
-- **Purpose**: Create .dpf bundle (zip with manifest + payload)
+- **Purpose**: Create .rico bundle (zip with manifest + payload)
 
 ### localForage
 - **npm**: https://www.npmjs.com/package/localforage

@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright E2E test configuration for DocProtect
+ * Playwright E2E test configuration for Rico
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({

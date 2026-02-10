@@ -236,7 +236,7 @@ test.describe('Credential Management', () => {
     await page.locator('text=Or use an existing credential / password manager').click();
 
     // Should show password manager text
-    await expect(page.locator('text=Use an existing DPF passkey from your password manager')).toBeVisible();
+    await expect(page.locator('text=Use an existing Rico passkey from your password manager')).toBeVisible();
   });
 
   test('should display PRF support status in technical info', async () => {

@@ -1,10 +1,10 @@
-# DocProtect Implementation Guide for AI Assistants
+# Rico Implementation Guide for AI Assistants
 
-This document provides comprehensive context for implementing DocProtect, a browser-based document encryption system using age encryption with WebAuthn PRF for passwordless authentication.
+This document provides comprehensive context for implementing Rico, a browser-based document encryption system using age encryption with WebAuthn PRF for passwordless authentication.
 
 ## Overview
 
-DocProtect enables users to encrypt files locally in the browser using modern encryption (age) and authenticate with WebAuthn (passkeys/security keys) instead of passwords. The system uses WebAuthn PRF extension to derive encryption keys directly from authenticators.
+Rico enables users to encrypt files locally in the browser using modern encryption (age) and authenticate with WebAuthn (passkeys/security keys) instead of passwords. The system uses WebAuthn PRF extension to derive encryption keys directly from authenticators.
 
 ## Core Technologies
 
@@ -101,7 +101,7 @@ try {
 
 ### Phase 2: Multi-Recipient & Bundles (Week 3-4)
 1. ✅ Multi-recipient encryption
-2. ✅ DocProtect bundle format (.dpf zip)
+2. ✅ Rico bundle format (.rico zip)
 3. ✅ Manifest generation
 4. ✅ Bundle unpacking
 
@@ -155,7 +155,7 @@ See `docs/PRF_FALLBACK_STRATEGY.md` for complete implementation.
 
 ### `lib/crypto/encryption.ts`
 
-**Purpose**: Wrapper around typage for DocProtect-specific encryption
+**Purpose**: Wrapper around typage for Rico-specific encryption
 
 **Key Functions:**
 - `encryptFile(file, credential, recipients, policy)` - Encrypt file with age
@@ -173,11 +173,11 @@ See `docs/PRF_FALLBACK_STRATEGY.md` for complete implementation.
 
 ### `lib/crypto/bundle.ts`
 
-**Purpose**: Create/parse DocProtect bundle format (.dpf)
+**Purpose**: Create/parse Rico bundle format (.rico)
 
 **Bundle Structure:**
 ```
-bundle.dpf (zip)
+bundle.rico (zip)
 ├── manifest.json
 └── 0.payload (age-encrypted binary)
 ```
@@ -223,7 +223,7 @@ bundle.dpf (zip)
 2. Selects their credential (or creates new)
 3. Optionally adds recipients
 4. System checks PRF support
-5. Encrypts and downloads .dpf bundle
+5. Encrypts and downloads .rico bundle
 
 ### `app/api/bundles/route.ts`
 

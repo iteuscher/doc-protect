@@ -1,6 +1,6 @@
 ## File Structure
 ```
-docprotect/
+rico/
 ├── docs/
 │   ├── AI_IMPLEMENTATION_GUIDE.md          # This file - guide for AI assistants
 │   ├── REFERENCES.md                        # Links to all documentation
@@ -9,7 +9,7 @@ docprotect/
 ├── lib/
 │   ├── crypto/
 │   │   ├── encryption.ts                    # Main encryption engine (typage wrapper)
-│   │   ├── bundle.ts                        # DocProtect bundle creation/parsing
+│   │   ├── bundle.ts                        # Rico bundle creation/parsing
 │   │   └── manifest.ts                      # TDF manifest handling
 │   ├── auth/
 │   │   ├── webauthn.ts                      # WebAuthn credential management

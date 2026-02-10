@@ -1,15 +1,15 @@
 /**
- * DocProtect Manifest Generation
- * 
+ * Rico Manifest Generation
+ *
  * Creates TDF-inspired manifests with embedded ABAC policies.
- * 
+ *
  * References:
  * - OpenTDF manifest: https://opentdf.io/spec/schema/opentdf/manifest
  * - TDF spec: https://github.com/virtru/tdf-spec
  */
 
 import type {
-  DocProtectManifest,
+  RicoManifest,
   PolicyObject,
   RecipientInfo
 } from '@/lib/types/bundle';
@@ -28,9 +28,9 @@ export interface CreateManifestOptions {
 }
 
 /**
- * Create DocProtect manifest
+ * Create Rico manifest
  */
-export function createManifest(options: CreateManifestOptions): DocProtectManifest {
+export function createManifest(options: CreateManifestOptions): RicoManifest {
   const {
     fileName,
     fileType,

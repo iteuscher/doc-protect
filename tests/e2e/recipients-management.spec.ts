@@ -365,12 +365,12 @@ test.describe('Recipients Management', () => {
   });
 
   test('should only show recipients step for encryption, not decryption', async () => {
-    // This is verified by uploading a DPF file
+    // This is verified by uploading a Rico file
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles({
-      name: 'test.dpf',
+      name: 'test.rico',
       mimeType: 'application/zip',
-      buffer: Buffer.from('mock dpf content'),
+      buffer: Buffer.from('mock rico content'),
     });
 
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
@@ -380,7 +380,7 @@ test.describe('Recipients Management', () => {
 
     // Note: Actual decryption won't work with mock data, but we can verify
     // that the workflow doesn't show recipients step
-    // The progress indicator should not show Recipients for DPF files
+    // The progress indicator should not show Recipients for Rico files
     const progressBar = page.locator('[class*="sticky"]').first();
     const hasRecipientsStep = await progressBar.locator('text=Recipients').isVisible();
 

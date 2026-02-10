@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createBundle, parseBundle, validateBundle, getBundleMetadata } from '@/lib/crypto/bundle';
-import type { DocProtectManifest } from '@/lib/types/bundle';
+import type { RicoManifest } from '@/lib/types/bundle';
 
-const manifest: DocProtectManifest = {
+const manifest: RicoManifest = {
   version: '1.0.0',
   manifestVersion: 1,
   createdAt: new Date().toISOString(),

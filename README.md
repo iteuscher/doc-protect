@@ -1,7 +1,7 @@
 # Doc Protect   
 
-[![CI](https://github.com/iteuscher/doc-protect/actions/workflows/ci.yml/badge.svg)](https://github.com/iteuscher/doc-protect/actions/workflows/ci.yml)
-[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025e8c?logo=dependabot)](https://github.com/iteuscher/doc-protect/security/dependabot)
+[![CI](https://github.com/iteuscher/rico/actions/workflows/ci.yml/badge.svg)](https://github.com/iteuscher/rico/actions/workflows/ci.yml)
+[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025e8c?logo=dependabot)](https://github.com/iteuscher/rico/security/dependabot)
 
 
 ## Table of Contents
@@ -27,7 +27,7 @@ The current Doc Protect version is v0.1 as it is in active research and developm
 - 🌐 **Browser-Based**: All encryption/decryption happens locally in your browser
 - 🔄 **Unified Workflow**: Single interface for both encryption and decryption
 - 🛡️ **PRF Support**: Automatic detection and fallback for systems without PRF support
-- 📦 **Bundle Format**: Standard `.dpf` format with embedded manifest and policy
+- 📦 **Bundle Format**: Standard `.rico` format with embedded manifest and policy
 - 💾 **Local Storage**: Credentials stored securely in IndexedDB (never leaves your device)
 
 ## Architecture
@@ -52,7 +52,7 @@ Architecture diagrams are available in the folder: [Architecture Diagrams](Archi
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd doc-protect
+cd rico
 
 2. Install dependencies:
 ```bash
@@ -96,12 +96,12 @@ For detailed testing instructions, see [LOCAL_TESTING.md](./LOCAL_TESTING.md) an
 1. Create a WebAuthn passkey/security key
 2. System checks if PRF extension is supported
 3. File is encrypted using age encryption with WebAuthn PRF
-4. Encrypted file is packaged with manifest and policy into `.dpf` format
+4. Encrypted file is packaged with manifest and policy into `.rico` format
 5. User downloads the encrypted bundle
 
 ### Decryption Flow
 
-1. User uploads a `.dpf` file
+1. User uploads a `.rico` file
 2. User selects the credential used for encryption
 3. User authenticates with their passkey/security key
 4. File is decrypted using the WebAuthn identity
@@ -109,7 +109,7 @@ For detailed testing instructions, see [LOCAL_TESTING.md](./LOCAL_TESTING.md) an
 
 ### PRF Fallback
 
-For systems without WebAuthn PRF support (e.g., Windows 10/11), DocProtect automatically falls back to:
+For systems without WebAuthn PRF support (e.g., Windows 10/11), Rico automatically falls back to:
 - Standard WebAuthn credential creation
 - PBKDF2 key derivation from WebAuthn assertions
 - Compatible encryption (not compatible with age CLI)
@@ -126,7 +126,7 @@ For systems without WebAuthn PRF support (e.g., Windows 10/11), DocProtect autom
 
 ### Bundle Format
 
-DocProtect bundles (`.dpf` files) are ZIP archives containing:
+Rico bundles (`.rico` files) are ZIP archives containing:
 - **`manifest.json`**: File metadata, encryption info, and access policy
 - **`0.payload`**: age-encrypted file data
 
@@ -170,7 +170,7 @@ See [FUTURE_PHASES.md](./FUTURE_PHASES.md) for planned improvements.
 ### Project Structure
 
 ```
-doc-protect/
+rico/
 ├── app/                    # Next.js application
 │   ├── api/               # API routes
 │   ├── page.tsx           # Main UI

@@ -13,7 +13,7 @@
 
 import type { PRFSupport } from '@/lib/types/credential';
 
-const PRF_SUPPORT_CACHE_KEY = 'docprotect:prf-support';
+const PRF_SUPPORT_CACHE_KEY = 'rico:prf-support';
 const CACHE_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 interface CachedSupport {
@@ -292,7 +292,7 @@ async function createTestPRFCredential(
         challenge: crypto.getRandomValues(new Uint8Array(32)),
         rp: {
           id: window.location.hostname,
-          name: 'DocProtect PRF Test'
+          name: 'Rico PRF Test'
         },
         user: {
           id: crypto.getRandomValues(new Uint8Array(16)),

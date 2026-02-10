@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { encryptFile, decryptFile } from '@/lib/crypto/encryption';
-import type { RecipientInfo, DocProtectManifest } from '@/lib/types/bundle';
+import type { RecipientInfo, RicoManifest } from '@/lib/types/bundle';
 import type { WebAuthnCredential, FallbackCredential } from '@/lib/types/credential';
 import type { KeypairCredential } from '@/lib/types/encryption-credential';
 
@@ -61,7 +61,7 @@ const fallbackCredential: FallbackCredential = {
   createdAt: new Date().toISOString()
 };
 
-const fallbackManifest: DocProtectManifest = {
+const fallbackManifest: RicoManifest = {
   version: '1.0.0',
   manifestVersion: 1,
   createdAt: new Date().toISOString(),
@@ -204,7 +204,7 @@ describe('Encryption engine', () => {
   });
 
   it('decrypts PQ-encrypted bundle with keypair credential', async () => {
-    const pqManifest: DocProtectManifest = {
+    const pqManifest: RicoManifest = {
       version: '1.0.0',
       manifestVersion: 1,
       createdAt: new Date().toISOString(),

@@ -1,14 +1,14 @@
 /**
- * Lightweight API client for DocProtect serverless routes.
+ * Lightweight API client for Rico serverless routes.
  *
  * All functions throw when the underlying fetch request fails.
  */
 
-import type { DocProtectManifest } from '@/lib/types/bundle';
+import type { RicoManifest } from '@/lib/types/bundle';
 
 export interface UploadBundleRequest {
   ownerIdentity: string;
-  manifest: DocProtectManifest;
+  manifest: RicoManifest;
   bundleBlob: Blob;
   fileName: string;
 }

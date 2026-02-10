@@ -85,10 +85,10 @@ describe('IndexedDB bundle storage', () => {
   it('stores bundle and lists metadata', async () => {
     const blob = new Blob(['ciphertext']);
     const metadata = {
-      fileName: 'secret.txt.dpf',
+      fileName: 'secret.txt.rico',
       encryptedSize: blob.size,
       createdAt: new Date().toISOString(),
-      mimeType: 'application/docprotect'
+      mimeType: 'application/rico'
     };
 
     await storeBundle('bundle-1', blob, metadata);
@@ -112,10 +112,10 @@ describe('IndexedDB bundle storage', () => {
 
   it('deletes bundle data', async () => {
     await storeBundle('bundle-2', new Blob(['data']), {
-      fileName: 'a.dpf',
+      fileName: 'a.rico',
       encryptedSize: 4,
       createdAt: new Date().toISOString(),
-      mimeType: 'application/docprotect'
+      mimeType: 'application/rico'
     });
 
     await deleteBundle('bundle-2');

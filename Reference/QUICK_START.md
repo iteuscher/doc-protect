@@ -3,8 +3,8 @@
 ## Initial Setup
 ```bash
 # Clone/create project
-npx create-next-app@latest docprotect --typescript --tailwind --app
-cd docprotect
+npx create-next-app@latest rico --typescript --tailwind --app
+cd rico
 
 # Install dependencies
 npm install age-encryption jszip localforage @supabase/supabase-js
@@ -101,7 +101,7 @@ vercel env add AWS_SECRET_ACCESS_KEY
 
 1. **Initial Context Load:**
 ```
-I'm building DocProtect, a browser-based document encryption system. 
+I'm building Rico, a browser-based document encryption system. 
 I've created a detailed implementation guide and skeleton code.
 
 Please read these files first to understand the project:
@@ -119,7 +119,7 @@ After reading, confirm you understand:
 1. The purpose of WebAuthn PRF
 2. Why fallback is needed for Windows
 3. How typage wraps age encryption
-4. The DocProtect bundle format
+4. The Rico bundle format
 ```
 
 2. **Specific Implementation Request:**
@@ -131,7 +131,7 @@ Requirements:
 2. Add owner as WebAuthn recipient
 3. Support multiple recipients (X25519 and WebAuthn)
 4. Handle PRF fallback case
-5. Create DocProtect bundle with manifest
+5. Create Rico bundle with manifest
 6. Add comprehensive error handling
 7. Write unit tests
 
@@ -156,7 +156,7 @@ The implementation looks good, but I need you to:
 
 Save all these files to your project:
 ```
-docprotect/
+rico/
 ├── docs/
 │   ├── AI_IMPLEMENTATION_GUIDE.md       # ✅ Created above
 │   ├── REFERENCES.md                     # ✅ Created above

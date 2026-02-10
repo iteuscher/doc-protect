@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * DocProtect Guided Workflow UI
+ * Rico Guided Workflow UI
  *
  * Step-by-step workflow for encrypting and decrypting files:
  * 1. File Upload
@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
 import type { PRFSupport, WebAuthnCredential, FallbackCredential } from '@/lib/types/credential';
-import type { DocProtectBundle } from '@/lib/types/bundle';
+import type { RicoBundle } from '@/lib/types/bundle';
 import type { EncryptionAlgorithm, EncryptionSettings, StoredKeypair } from '@/lib/types/settings';
 import { DEFAULT_SETTINGS } from '@/lib/types/settings';
 import { keypairToCredential } from '@/lib/types/encryption-credential';
@@ -40,7 +40,7 @@ type WorkflowStep =
   | 'edit-bundle'           // Section 5 (post-encryption)
   | 'complete';             // Done
 
-type FileType = 'standard' | 'dpf' | null;
+type FileType = 'standard' | 'rico' | null;
 type CredentialMode = 'create' | 'select-stored' | 'select-external' | null;
 type SharingMode = 'download' | 'cloud' | 'link' | null;
 
@@ -53,7 +53,7 @@ interface WorkflowState {
   customCredentialName: string;
   recipients: string[];
   sharingMode: SharingMode;
-  encryptedBundle: DocProtectBundle | null;
+  encryptedBundle: RicoBundle | null;
   decryptedData: { fileName: string; url: string } | null;
 }
 
@@ -135,7 +135,7 @@ export default function Home() {
         const storedKeypairs = await listKeypairs();
         setKeypairs(storedKeypairs);
       } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Failed to initialize DocProtect';
+        const message = error instanceof Error ? error.message : 'Failed to initialize Rico';
         setErrorMessage(message);
       }
     }
@@ -154,18 +154,18 @@ export default function Home() {
 
   // ===== SECTION 1: FILE UPLOAD =====
   const handleFileUpload = useCallback((file: File) => {
-    const isDPF = file.name.toLowerCase().endsWith('.dpf') || file.type === 'application/zip';
+    const isRico = file.name.toLowerCase().endsWith('.rico') || file.type === 'application/zip';
 
     setWorkflow(prev => ({
       ...prev,
       step: 'verify-identity',
       uploadedFile: file,
-      fileType: isDPF ? 'dpf' : 'standard',
-      customCredentialName: file.name.replace(/\.(dpf|pdf|docx?|txt|png|jpe?g)$/i, '')
+      fileType: isRico ? 'rico' : 'standard',
+      customCredentialName: file.name.replace(/\.(rico|pdf|docx?|txt|png|jpe?g)$/i, '')
     }));
 
     setStatusMessage(
-      isDPF
+      isRico
         ? `Ready to decrypt: ${file.name}`
         : `Ready to encrypt: ${file.name}`
     );
@@ -267,7 +267,7 @@ export default function Home() {
         let keypair = keypairs.find(kp => kp.algorithm === algType);
 
         if (!keypair) {
-          const label = workflow.customCredentialName.trim() || `DocProtect ${algType === 'age-pq' ? 'PQ' : 'x25519'} Key`;
+          const label = workflow.customCredentialName.trim() || `Rico ${algType === 'age-pq' ? 'PQ' : 'x25519'} Key`;
           setStatusMessage(`Generating ${algType === 'age-pq' ? 'post-quantum' : 'x25519'} keypair...`);
           keypair = algType === 'age-pq'
             ? await generatePQKeypair(label)
@@ -338,7 +338,7 @@ export default function Home() {
 
     try {
       const parsed = await parseBundle(workflow.uploadedFile);
-      const bundle: DocProtectBundle = {
+      const bundle: RicoBundle = {
         bundleId: parsed.bundleId || crypto.randomUUID(),
         blob: workflow.uploadedFile,
         manifest: parsed.manifest,
@@ -509,7 +509,7 @@ export default function Home() {
     const url = URL.createObjectURL(workflow.encryptedBundle.blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${workflow.uploadedFile?.name || 'file'}.dpf`;
+    a.download = `${workflow.uploadedFile?.name || 'file'}.rico`;
     a.click();
     URL.revokeObjectURL(url);
 
@@ -519,7 +519,7 @@ export default function Home() {
       sharingMode: 'download'
     }));
 
-    setStatusMessage('DPF file Created Successfully!');
+    setStatusMessage('Rico file created successfully!');
   };
 
   const handleLinkSharing = () => {
@@ -563,7 +563,7 @@ export default function Home() {
 
   // ===== RESET =====
   const handleReset = async () => {
-    if (!confirm('Reset all DocProtect data? This will delete all credentials and bundles. This cannot be undone.')) {
+    if (!confirm('Reset all Rico data? This will delete all credentials and bundles. This cannot be undone.')) {
       return;
     }
 
@@ -607,7 +607,7 @@ export default function Home() {
         <header className="space-y-2">
           <div className="flex items-center justify-between">
             <div>
-              {/* <p className="text-sm uppercase tracking-wide text-slate-400">DocProtect</p> */}
+              {/* <p className="text-sm uppercase tracking-wide text-slate-400">Rico</p> */}
               <h1 className="text-3xl font-semibold text-white">
                 Passwordless Document Encryption
               </h1>
@@ -779,7 +779,7 @@ export default function Home() {
           <p className="text-sm text-slate-300 mt-1">{statusMessage}</p>
           {workflow.uploadedFile && workflow.step !== 'recipients' && workflow.step !== 'sharing' && workflow.step !== 'complete' && (
             <p className="text-xs text-slate-400 mt-2">
-              {workflow.fileType === 'dpf' ? '🔒' : '📄'} {workflow.uploadedFile.name}
+              {workflow.fileType === 'rico' ? '🔒' : '📄'} {workflow.uploadedFile.name}
             </p>
           )}
           {errorMessage && (() => {
@@ -851,7 +851,7 @@ export default function Home() {
                 Choose File
               </div>
               <p className="text-xs text-slate-500">
-                .dpf files will be decrypted • Other files will be encrypted
+                .rico files will be decrypted • Other files will be encrypted
               </p>
               <input type="file" className="hidden" onChange={handleFileChange} />
             </label>
@@ -994,7 +994,7 @@ export default function Home() {
                                   Select from Google, iCloud, Bitwarden, 1Password, etc.
                                 </button>
                                 <p className="text-xs text-slate-400 mt-2">
-                                  Use an existing DPF passkey from your password manager
+                                  Use an existing Rico passkey from your password manager
                                 </p>
                               </div>
 
@@ -1018,7 +1018,7 @@ export default function Home() {
               )}
 
               {/* DECRYPTION PATH */}
-              {workflow.fileType === 'dpf' && (
+              {workflow.fileType === 'rico' && (
                 <div className="space-y-4">
                   <p className="text-sm text-slate-300">
                     Select the credential used to encrypt this file:
@@ -1208,7 +1208,7 @@ export default function Home() {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-emerald-200">Download Bundle</p>
                       <p className="text-xs text-slate-400 mt-1">
-                        Download the .dpf file to share directly via email, messaging, etc.
+                        Download the .rico file to share directly via email, messaging, etc.
                       </p>
                     </div>
                   </div>
@@ -1356,7 +1356,7 @@ export default function Home() {
 
               <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-4 mb-6">
                 <p className="text-sm text-emerald-200">
-                  ✅ Your DPF file has been created and downloaded successfully.
+                  ✅ Your Rico file has been created and downloaded successfully.
                 </p>
               </div>
 

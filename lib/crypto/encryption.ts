@@ -1,7 +1,7 @@
 /**
- * DocProtect Encryption Engine
+ * Rico Encryption Engine
  * 
- * Wrapper around typage (age-encryption npm package) for DocProtect-specific
+ * Wrapper around typage (age-encryption npm package) for Rico-specific
  * encryption workflows.
  * 
  * References:
@@ -12,10 +12,10 @@
 
 import * as age from 'age-encryption';
 import type {
-  DocProtectBundle,
+  RicoBundle,
   RecipientInfo,
   PolicyObject,
-  DocProtectManifest
+  RicoManifest
 } from '@/lib/types/bundle';
 import type { WebAuthnCredential, FallbackCredential } from '@/lib/types/credential';
 import type { KeypairCredential } from '@/lib/types/encryption-credential';
@@ -42,8 +42,8 @@ export interface EncryptOptions {
 }
 
 export interface DecryptOptions {
-  /** DocProtect bundle to decrypt */
-  bundle: DocProtectBundle;
+  /** Rico bundle to decrypt */
+  bundle: RicoBundle;
 
   /** Credential to use for decryption (optional - will prompt if not provided) */
   credential?: WebAuthnCredential | FallbackCredential | KeypairCredential;
@@ -67,7 +67,7 @@ export interface DecryptResult {
  * Main encryption function
  * 
  * @param options - Encryption options
- * @returns Encrypted DocProtect bundle
+ * @returns Encrypted Rico bundle
  * 
  * @example
  * ```typescript
@@ -81,7 +81,7 @@ export interface DecryptResult {
  * });
  * ```
  */
-export async function encryptFile(options: EncryptOptions): Promise<DocProtectBundle> {
+export async function encryptFile(options: EncryptOptions): Promise<RicoBundle> {
   const { file, ownerCredential, recipients = [], policy } = options;
   if (!file) {
     throw new Error('File is required for encryption');
@@ -357,10 +357,10 @@ export async function decryptFile(options: DecryptOptions): Promise<DecryptResul
  * @returns Updated bundle with new recipient
  */
 export async function addRecipient(
-  bundle: DocProtectBundle,
+  bundle: RicoBundle,
   ownerCredential: WebAuthnCredential,
   newRecipient: RecipientInfo
-): Promise<DocProtectBundle> {
+): Promise<RicoBundle> {
   const decrypted = await decryptFile({ bundle, credential: ownerCredential });
   const updatedManifest = await getUpdatedManifest(bundle, (manifest) => {
     const recipients = [...manifest.encryptionInfo.recipients, newRecipient];
@@ -397,10 +397,10 @@ export async function addRecipient(
  * @returns Updated bundle without the recipient
  */
 export async function removeRecipient(
-  bundle: DocProtectBundle,
+  bundle: RicoBundle,
   ownerCredential: WebAuthnCredential,
   recipientToRemove: string
-): Promise<DocProtectBundle> {
+): Promise<RicoBundle> {
   const decrypted = await decryptFile({ bundle, credential: ownerCredential });
 
   const updatedManifest = await getUpdatedManifest(bundle, (manifest) => {
@@ -508,9 +508,9 @@ function createDecrypterWithIdentity(credential?: WebAuthnCredential | KeypairCr
 }
 
 async function getUpdatedManifest(
-  bundle: DocProtectBundle,
-  updater: (manifest: DocProtectManifest) => DocProtectManifest
-): Promise<DocProtectManifest> {
+  bundle: RicoBundle,
+  updater: (manifest: RicoManifest) => RicoManifest
+): Promise<RicoManifest> {
   const { manifest } = await parseBundle(bundle.blob);
   return updater({
     ...manifest,

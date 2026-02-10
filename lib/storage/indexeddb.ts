@@ -15,27 +15,27 @@ import type { EncryptionSettings, StoredKeypair } from '@/lib/types/settings';
 
 // Configure localForage
 const credentialStore = localforage.createInstance({
-  name: 'DocProtect',
+  name: 'Rico',
   storeName: 'credentials',
-  description: 'WebAuthn credentials for DocProtect'
+  description: 'WebAuthn credentials for Rico'
 });
 
 const bundleStore = localforage.createInstance({
-  name: 'DocProtect',
+  name: 'Rico',
   storeName: 'bundles',
   description: 'Locally stored encrypted bundles'
 });
 
 const settingsStore = localforage.createInstance({
-  name: 'DocProtect',
+  name: 'Rico',
   storeName: 'settings',
-  description: 'Encryption settings for DocProtect'
+  description: 'Encryption settings for Rico'
 });
 
 const keypairStore = localforage.createInstance({
-  name: 'DocProtect',
+  name: 'Rico',
   storeName: 'keypairs',
-  description: 'PQ and x25519 keypairs for DocProtect'
+  description: 'PQ and x25519 keypairs for Rico'
 });
 
 /**

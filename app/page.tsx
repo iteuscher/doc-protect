@@ -76,7 +76,7 @@ export default function Home() {
   const [statusMessage, setStatusMessage] = useState<string>('Ready to upload a file');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showDetailedInfo, setShowDetailedInfo] = useState(false);
-  const [showExistingOptions, setShowExistingOptions] = useState(false);
+  const [showAlternativeOptions, setShowAlternativeOptions] = useState(false);
 
   // Bootstrap
   useEffect(() => {
@@ -85,12 +85,32 @@ export default function Home() {
         const cachedSupport = getCachedPRFSupport();
         const platformInfo = getPlatformPRFInfo();
 
-        setPrfSupport(cachedSupport ?? {
-          supported: platformInfo.likelySupported,
-          fallbackRequired: !platformInfo.likelySupported,
-          platform: platformInfo.platform,
-          detectedAt: new Date().toISOString()
-        });
+        // If we have cached support, use it unless it conflicts with platform expectations
+        // For platforms that likely support PRF (Mac, iOS, etc.), trust platform detection
+        // over stale cached negative results
+        let prfSupport: PRFSupport;
+        if (cachedSupport) {
+          // If platform likely supports PRF but cache says no, trust platform (cache might be stale)
+          if (platformInfo.likelySupported && !cachedSupport.supported) {
+            prfSupport = {
+              supported: platformInfo.likelySupported,
+              fallbackRequired: !platformInfo.likelySupported,
+              platform: platformInfo.platform,
+              detectedAt: new Date().toISOString()
+            };
+          } else {
+            prfSupport = cachedSupport;
+          }
+        } else {
+          prfSupport = {
+            supported: platformInfo.likelySupported,
+            fallbackRequired: !platformInfo.likelySupported,
+            platform: platformInfo.platform,
+            detectedAt: new Date().toISOString()
+          };
+        }
+
+        setPrfSupport(prfSupport);
 
         const stored = await listUserCredentials();
         setCredentials(stored);
@@ -155,6 +175,11 @@ export default function Home() {
       return;
     }
 
+    if (!workflow.uploadedFile) {
+      setErrorMessage('No file uploaded');
+      return;
+    }
+
     setIsProcessing(true);
     setErrorMessage(null);
     setStatusMessage('Creating credential and encrypting...');
@@ -183,7 +208,25 @@ export default function Home() {
         encryptedBundle: bundle
       }));
 
-      setStatusMessage('File encrypted. Add recipients or proceed to sharing.');
+      setStatusMessage(`Credential "${workflow.customCredentialName}" created successfully. Encrypting file...`);
+
+      // Automatically proceed to encryption for standard files
+      if (workflow.fileType === 'standard') {
+        const bundle = await encryptFile({
+          file: workflow.uploadedFile,
+          ownerCredential: credential
+        });
+
+        setWorkflow(prev => ({
+          ...prev,
+          step: 'recipients',
+          encryptedBundle: bundle,
+          selectedCredential: credential,
+          credentialMode: 'create'
+        }));
+
+        setStatusMessage('File encrypted. Add recipients or proceed to sharing.');
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to create credential or encrypt';
       setErrorMessage(message);
@@ -313,27 +356,67 @@ export default function Home() {
   const [recipientEmail, setRecipientEmail] = useState('');
 
   const handleAddRecipient = () => {
-    const email = recipientEmail.trim();
-    if (!email) return;
+    const input = recipientEmail.trim();
+    if (!input) return;
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setErrorMessage('Please enter a valid email address');
-      return;
+    // Split by comma or whitespace, then filter out empty strings
+    const emailCandidates = input
+      .split(/[,\s]+/)
+      .map(e => e.trim())
+      .filter(e => e.length > 0);
+
+    if (emailCandidates.length === 0) return;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const validEmails: string[] = [];
+    const invalidEmails: string[] = [];
+    const duplicateEmails: string[] = [];
+
+    emailCandidates.forEach(email => {
+      if (!emailRegex.test(email)) {
+        invalidEmails.push(email);
+      } else if (workflow.recipients.includes(email)) {
+        duplicateEmails.push(email);
+      } else if (!validEmails.includes(email)) {
+        validEmails.push(email);
+      } else {
+        duplicateEmails.push(email);
+      }
+    });
+
+    // Add all valid emails
+    if (validEmails.length > 0) {
+      setWorkflow(prev => ({
+        ...prev,
+        recipients: [...prev.recipients, ...validEmails]
+      }));
     }
 
-    if (workflow.recipients.includes(email)) {
-      setErrorMessage('This recipient has already been added');
-      return;
+    // Set appropriate messages
+    // Only show success/info messages in status (white), errors go to error message (red)
+    const messages: string[] = [];
+    if (validEmails.length > 0) {
+      messages.push(`Added ${validEmails.length} recipient${validEmails.length > 1 ? 's' : ''}: ${validEmails.join(', ')}`);
+    }
+    if (duplicateEmails.length > 0) {
+      messages.push(`Duplicate${duplicateEmails.length > 1 ? 's' : ''} skipped: ${duplicateEmails.join(', ')}`);
     }
 
-    setWorkflow(prev => ({
-      ...prev,
-      recipients: [...prev.recipients, email]
-    }));
+    if (messages.length > 0) {
+      setStatusMessage(messages.join('. '));
+    } else if (invalidEmails.length > 0 && validEmails.length === 0) {
+      // Only clear status if we have errors and no successes
+      setStatusMessage('');
+    }
+
+    // Error messages go to error area (red) only
+    if (invalidEmails.length > 0) {
+      setErrorMessage(`Invalid email${invalidEmails.length > 1 ? 's' : ''}: ${invalidEmails.join(', ')}`);
+    } else {
+      setErrorMessage(null);
+    }
 
     setRecipientEmail('');
-    setErrorMessage(null);
-    setStatusMessage(`Added ${email} as recipient`);
   };
 
   const handleRemoveRecipient = (email: string) => {
@@ -347,11 +430,18 @@ export default function Home() {
   const handleProceedToSharing = () => {
     setWorkflow(prev => ({ ...prev, step: 'sharing' }));
     setStatusMessage('Choose how to share the encrypted file');
+    setErrorMessage(null);
   };
 
   const handleSkipRecipients = () => {
-    setWorkflow(prev => ({ ...prev, step: 'sharing' }));
-    setStatusMessage('No additional recipients. Choose sharing method.');
+    // Clear any recipients that were added and proceed to sharing
+    setWorkflow(prev => ({ 
+      ...prev, 
+      step: 'sharing',
+      recipients: []
+    }));
+    setStatusMessage('Recipients skipped. Choose how to share the encrypted file.');
+    setErrorMessage(null);
   };
 
   // ===== SECTION 4: SHARING =====
@@ -439,7 +529,7 @@ export default function Home() {
         <header className="space-y-2">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm uppercase tracking-wide text-slate-400">DocProtect</p>
+              {/* <p className="text-sm uppercase tracking-wide text-slate-400">DocProtect</p> */}
               <h1 className="text-3xl font-semibold text-white">
                 Passwordless Document Encryption
               </h1>
@@ -486,9 +576,55 @@ export default function Home() {
         <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
           <p className="text-sm font-medium text-slate-200">Status</p>
           <p className="text-sm text-slate-300 mt-1">{statusMessage}</p>
-          {errorMessage && (
-            <p className="text-sm text-red-400 mt-2 border-t border-red-500/20 pt-2">{errorMessage}</p>
+          {workflow.uploadedFile && workflow.step !== 'recipients' && workflow.step !== 'sharing' && workflow.step !== 'complete' && (
+            <p className="text-xs text-slate-400 mt-2">
+              {workflow.fileType === 'dpf' ? '🔒' : '📄'} {workflow.uploadedFile.name}
+            </p>
           )}
+          {errorMessage && (() => {
+            // Check if error message contains "See:" or "See " followed by a URL
+            const seeUrlMatch = errorMessage.match(/^(.+?)\s+See:?\s+(https?:\/\/[^\s]+)/);
+            if (seeUrlMatch) {
+              const [, mainMessage, url] = seeUrlMatch;
+              // Remove trailing periods and whitespace, then add a single period
+              const cleanedMessage = mainMessage.trim().replace(/\.+$/, '');
+              return (
+                <div className="text-sm text-red-400 mt-2 border-t border-red-500/20 pt-2">
+                  <span>{cleanedMessage}. </span>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-red-400 hover:text-red-300 underline"
+                  >
+                    See more details
+                  </a>
+                </div>
+              );
+            }
+            // Fallback: render any URLs as clickable links
+            const parts = errorMessage.split(/(https?:\/\/[^\s]+)/);
+            return (
+              <div className="text-sm text-red-400 mt-2 border-t border-red-500/20 pt-2">
+                {parts.map((part, index) => {
+                  if (part.match(/^https?:\/\//)) {
+                    return (
+                      <a
+                        key={index}
+                        href={part}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-red-400 hover:text-red-300 underline"
+                      >
+                        {part}
+                      </a>
+                    );
+                  }
+                  return <span key={index}>{part}</span>;
+                })}
+              </div>
+            );
+          })()}
         </div>
 
         {/* FILE UPLOAD */}
@@ -559,24 +695,76 @@ export default function Home() {
                     </p>
                   </div>
 
-                  {/* Collapsible: Existing Credential / Password Manager */}
-                  {(credentials.length > 0 || true) && (
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => setShowExistingOptions(!showExistingOptions)}
-                        className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-300 transition"
+                  {/* Dropdown for Alternative Options */}
+                  <div className="rounded-lg border border-white/10 bg-slate-800/30">
+                    <button
+                      onClick={() => setShowAlternativeOptions(!showAlternativeOptions)}
+                      className="w-full flex items-center justify-between p-4 text-left transition hover:bg-slate-800/50"
+                    >
+                      <span className="text-sm font-medium text-slate-300">
+                        Use Existing Credential
+                      </span>
+                      <svg
+                        className={`w-5 h-5 text-slate-400 transition-transform ${showAlternativeOptions ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                       >
-                        <svg
-                          className={`w-4 h-4 transition-transform ${showExistingOptions ? 'rotate-180' : ''}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                        Or use an existing credential / password manager
-                      </button>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {showAlternativeOptions && (
+                      <div className="border-t border-white/10 p-4 space-y-4">
+                        {/* Select Existing Credential */}
+                        {credentials.length > 0 && (
+                          <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+                            <p className="text-sm font-medium text-blue-200 mb-3">
+                              Use Existing Credential
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {credentials.map((cred) => (
+                                <button
+                                  key={cred.credentialId}
+                                  onClick={() => handleSelectCredential(cred)}
+                                  className={`rounded-lg border px-3 py-2 text-sm transition ${
+                                    workflow.selectedCredential?.credentialId === cred.credentialId
+                                      ? 'border-blue-400 bg-blue-500/20 text-blue-200'
+                                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                                  }`}
+                                >
+                                  {cred.keyName}{' '}
+                                  <span className="text-xs opacity-70">
+                                    ({cred.type === 'fallback-pbkdf2' ? 'Fallback' : 'PRF'})
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* External Credential - Encryption */}
+                        <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
+                          <p className="text-sm font-medium text-purple-200 mb-3">
+                            Select from Password Manager
+                          </p>
+                          <button
+                            onClick={handleUseExternalCredential}
+                            className={`w-full rounded-lg border px-4 py-2 text-sm transition ${
+                              workflow.credentialMode === 'select-external'
+                                ? 'border-purple-400 bg-purple-500/20 text-purple-200'
+                                : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                            }`}
+                          >
+                            Select from Google, iCloud, Bitwarden, 1Password, etc.
+                          </button>
+                          <p className="text-xs text-slate-400 mt-2">
+                            Use an existing DPF passkey from your password manager
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                       {showExistingOptions && (
                         <div className="mt-3 space-y-3">
@@ -734,11 +922,11 @@ export default function Home() {
               {/* Add Recipient */}
               <div className="flex gap-2 mb-4">
                 <input
-                  type="email"
+                  type="text"
                   value={recipientEmail}
                   onChange={(e) => setRecipientEmail(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleAddRecipient()}
-                  placeholder="recipient@example.com"
+                  placeholder="recipient@example.com, another@example.com"
                   className="flex-1 rounded-lg bg-slate-800/50 border border-white/10 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500/50 focus:outline-none"
                 />
                 <button
@@ -780,18 +968,29 @@ export default function Home() {
 
               {/* Navigation */}
               <div className="flex gap-2">
-                <button
-                  onClick={handleSkipRecipients}
-                  className="flex-1 rounded-lg border border-white/10 bg-slate-800/50 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-slate-800"
-                >
-                  Skip Recipients
-                </button>
-                <button
-                  onClick={handleProceedToSharing}
-                  className="flex-1 rounded-lg bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400"
-                >
-                  Continue to Sharing →
-                </button>
+                {workflow.recipients.length === 0 ? (
+                  <button
+                    onClick={handleSkipRecipients}
+                    className="flex-1 rounded-lg border border-white/10 bg-slate-800/50 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-slate-800"
+                  >
+                    Skip Recipients
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleSkipRecipients}
+                      className="flex-1 rounded-lg border border-white/10 bg-slate-800/50 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-slate-800"
+                    >
+                      Skip Recipients
+                    </button>
+                    <button
+                      onClick={handleProceedToSharing}
+                      className="flex-1 rounded-lg bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400"
+                    >
+                      Continue to Sharing →
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </section>

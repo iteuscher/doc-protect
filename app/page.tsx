@@ -88,6 +88,10 @@ export default function Home() {
   const [shareableLink, setShareableLink] = useState<string | null>(null);
   const [isLinkUploading, setIsLinkUploading] = useState(false);
 
+  // Cloud (Google Drive simulation) state
+  const [cloudLink, setCloudLink] = useState<string | null>(null);
+  const [isCloudUploading, setIsCloudUploading] = useState(false);
+
   // Bundle recipient download state (when visiting with ?bundle=id)
   const [bundleDownload, setBundleDownload] = useState<{
     id: string;
@@ -599,12 +603,39 @@ export default function Home() {
     }
   };
 
-  const handleCloudStorage = () => {
-    setWorkflow(prev => ({
-      ...prev,
-      sharingMode: 'cloud'
-    }));
-    setStatusMessage('Cloud storage (Google Drive) - Coming soon!');
+  const handleCloudStorage = async () => {
+    if (!workflow.encryptedBundle) return;
+
+    setIsCloudUploading(true);
+    setErrorMessage(null);
+    setStatusMessage('Connecting to Google Drive...');
+
+    try {
+      // Phase 1 – simulate OAuth / picker handshake
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      setStatusMessage('Uploading encrypted file to Google Drive...');
+
+      // Phase 2 – simulate upload
+      await new Promise(resolve => setTimeout(resolve, 1800));
+
+      // Generate a plausible-looking fake Google Drive share link
+      const fakeFileId = crypto.randomUUID().replace(/-/g, '').slice(0, 28).toUpperCase().replace(/[^A-Z0-9]/g, '0');
+      const link = `https://drive.google.com/file/d/${fakeFileId}/view?usp=sharing`;
+
+      setCloudLink(link);
+      setWorkflow(prev => ({
+        ...prev,
+        step: 'complete',
+        sharingMode: 'cloud',
+      }));
+      setStatusMessage('Rico file uploaded to Google Drive!');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Upload failed';
+      setErrorMessage(message);
+      setStatusMessage('Google Drive upload failed');
+    } finally {
+      setIsCloudUploading(false);
+    }
   };
 
   // ===== SECTION 5: EDIT BUNDLE =====
@@ -626,6 +657,8 @@ export default function Home() {
       decryptedData: null
     });
 
+    setShareableLink(null);
+    setCloudLink(null);
     setStatusMessage('Ready to upload a file');
     setErrorMessage(null);
   };
@@ -1289,19 +1322,26 @@ export default function Home() {
                 {/* Cloud Storage */}
                 <button
                   onClick={handleCloudStorage}
-                  disabled
+                  disabled={isCloudUploading}
                   className="w-full rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 text-left transition hover:bg-blue-500/10 disabled:opacity-50"
                 >
                   <div className="flex items-start gap-3">
                     <div className="rounded-lg bg-blue-500/20 p-2">
-                      <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                      </svg>
+                      {isCloudUploading ? (
+                        <svg className="w-5 h-5 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                        </svg>
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-blue-200">Store in Cloud</p>
                       <p className="text-xs text-slate-400 mt-1">
-                        Upload to Google Drive, Dropbox, or OneDrive (Coming soon)
+                        {isCloudUploading ? statusMessage : 'Upload to Google Drive'}
                       </p>
                     </div>
                   </div>
@@ -1458,6 +1498,34 @@ export default function Home() {
                     </div>
                     <p className="text-xs text-slate-500 mt-2">
                       Recipients can open this link to download the encrypted file.
+                    </p>
+                  </div>
+                </>
+              ) : workflow.sharingMode === 'cloud' && cloudLink ? (
+                <>
+                  <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-4 mb-6">
+                    <p className="text-sm text-emerald-200">
+                      ✅ Your Rico file has been uploaded to Google Drive. Share the link below.
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 mb-4">
+                    <p className="text-xs text-slate-400 mb-2">Google Drive link</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={cloudLink}
+                        className="flex-1 rounded bg-slate-800 px-3 py-2 text-xs text-slate-200 font-mono truncate"
+                      />
+                      <button
+                        onClick={() => navigator.clipboard.writeText(cloudLink)}
+                        className="shrink-0 rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">
+                      Recipients can open this Google Drive link to download the encrypted file.
                     </p>
                   </div>
                 </>

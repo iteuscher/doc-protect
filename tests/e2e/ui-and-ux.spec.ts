@@ -90,7 +90,7 @@ test.describe('UI and UX Features', () => {
 
   test.describe('File Upload Interface', () => {
     test('should show drag and drop area', async () => {
-      const dropZone = page.locator('text=Drag & drop or click to select');
+      const dropZone = page.locator('text=Drag & drop or click to select a file');
       await expect(dropZone).toBeVisible();
     });
 

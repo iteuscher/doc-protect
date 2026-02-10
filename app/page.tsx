@@ -839,7 +839,7 @@ export default function Home() {
               </div>
               <div>
                 <p className="text-lg font-medium text-white mb-2">Upload a File</p>
-                <p className="text-sm text-slate-400">Drag & drop or click to select</p>
+                <p className="text-sm text-slate-400">Drag & drop or click to select a file</p>
               </div>
               <div className="rounded-full bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400">
                 Choose File
@@ -1085,7 +1085,7 @@ export default function Home() {
               </h2>
 
               <p className="text-sm text-slate-300 mb-4">
-                Add recipient email addresses
+                Who should be able to decrypt this file?
               </p>
 
               {/* Add Recipient */}

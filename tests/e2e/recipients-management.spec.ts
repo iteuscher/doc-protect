@@ -59,7 +59,7 @@ test.describe('Recipients Management', () => {
 
     // Should show recipients UI
     await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible();
-    await expect(page.locator('text=Add recipient email addresses')).toBeVisible();
+    await expect(page.locator('text=Who should be able to decrypt this file?')).toBeVisible();
     await expect(page.locator('input[placeholder="recipient@example.com"]')).toBeVisible();
     await expect(page.locator('button:has-text("Add")')).toBeVisible();
   });

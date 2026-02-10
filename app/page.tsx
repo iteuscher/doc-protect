@@ -22,7 +22,8 @@ import { keypairToCredential } from '@/lib/types/encryption-credential';
 import { getCachedPRFSupport, getPlatformPRFInfo } from '@/lib/auth/prf-detection';
 import {
   createCredential,
-  listUserCredentials
+  listUserCredentials,
+  selectExistingCredential
 } from '@/lib/auth/webauthn';
 import { encryptFile, decryptFile } from '@/lib/crypto/encryption';
 import { parseBundle } from '@/lib/crypto/bundle';
@@ -80,7 +81,7 @@ export default function Home() {
   const [statusMessage, setStatusMessage] = useState<string>('Ready to upload a file');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showDetailedInfo, setShowDetailedInfo] = useState(false);
-  const [showAlternativeOptions, setShowAlternativeOptions] = useState(false);
+  const [showExistingOptions, setShowExistingOptions] = useState(false);
 
   // Settings state
   const [showSettings, setShowSettings] = useState(false);
@@ -165,8 +166,8 @@ export default function Home() {
 
     setStatusMessage(
       isDPF
-        ? 'DPF file detected. Ready to decrypt.'
-        : 'Standard file detected. Ready to encrypt.'
+        ? `Ready to decrypt: ${file.name}`
+        : `Ready to encrypt: ${file.name}`
     );
     setErrorMessage(null);
   }, []);
@@ -184,12 +185,11 @@ export default function Home() {
   };
 
   // ===== SECTION 2: VERIFY IDENTITY =====
-  const handleCreateCredential = async () => {
+  const handleCreateAndEncrypt = async () => {
     if (!workflow.customCredentialName.trim()) {
       setErrorMessage('Please enter a credential name');
       return;
     }
-
     if (!workflow.uploadedFile) {
       setErrorMessage('No file uploaded');
       return;
@@ -197,41 +197,35 @@ export default function Home() {
 
     setIsProcessing(true);
     setErrorMessage(null);
+    setStatusMessage('Creating credential and encrypting...');
+
     try {
       const credential = await createCredential({
-        keyName: workflow.customCredentialName.trim()
+        keyName: workflow.customCredentialName.trim(),
+        prfSupportOverride: prfSupport ?? undefined
       });
 
       const updated = await listUserCredentials();
       setCredentials(updated);
 
+      setStatusMessage('Credential created. Encrypting file...');
+
+      const bundle = await encryptFile({
+        file: workflow.uploadedFile,
+        ownerCredential: credential
+      });
+
       setWorkflow(prev => ({
         ...prev,
+        step: 'recipients',
         selectedCredential: credential,
-        credentialMode: 'create'
+        credentialMode: 'create',
+        encryptedBundle: bundle
       }));
 
-      setStatusMessage(`Credential "${workflow.customCredentialName}" created successfully. Encrypting file...`);
-
-      // Automatically proceed to encryption for standard files
-      if (workflow.fileType === 'standard') {
-        const bundle = await encryptFile({
-          file: workflow.uploadedFile,
-          ownerCredential: credential
-        });
-
-        setWorkflow(prev => ({
-          ...prev,
-          step: 'recipients',
-          encryptedBundle: bundle,
-          selectedCredential: credential,
-          credentialMode: 'create'
-        }));
-
-        setStatusMessage('File encrypted. Add recipients or proceed to sharing.');
-      }
+      setStatusMessage('File encrypted. Add recipients or proceed to sharing.');
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to create credential';
+      const message = error instanceof Error ? error.message : 'Failed to create credential or encrypt';
       setErrorMessage(message);
     } finally {
       setIsProcessing(false);
@@ -295,27 +289,20 @@ export default function Home() {
 
         setStatusMessage('File encrypted. Add recipients or proceed to sharing.');
       } else {
-        // WebAuthn PRF mode (existing behavior)
-        if (!workflow.selectedCredential && workflow.credentialMode !== 'select-external') {
-          setErrorMessage('Please create or select a credential first');
-          setIsProcessing(false);
-          return;
-        }
-
+        // WebAuthn PRF mode
         let credential = workflow.selectedCredential;
 
-        // If using external credential mode, create credential on-the-fly
+        // If using external credential mode, select existing passkey from password manager
         if (workflow.credentialMode === 'select-external' && !credential) {
-          const credName = workflow.customCredentialName.trim() || workflow.uploadedFile.name;
-          credential = await createCredential({
-            keyName: credName
-          });
-          const updated = await listUserCredentials();
-          setCredentials(updated);
+          setStatusMessage('Please select a passkey from your password manager...');
+          credential = await selectExistingCredential();
+          setStatusMessage('Passkey selected. Encrypting file...');
         }
 
         if (!credential) {
-          throw new Error('Failed to obtain credential for encryption');
+          setErrorMessage('Please create or select a credential first');
+          setIsProcessing(false);
+          return;
         }
 
         const bundle = await encryptFile({
@@ -506,8 +493,8 @@ export default function Home() {
 
   const handleSkipRecipients = () => {
     // Clear any recipients that were added and proceed to sharing
-    setWorkflow(prev => ({ 
-      ...prev, 
+    setWorkflow(prev => ({
+      ...prev,
       step: 'sharing',
       recipients: []
     }));
@@ -913,17 +900,13 @@ export default function Home() {
                     </>
                   )}
 
-                  {/* WebAuthn PRF mode (existing) */}
+                  {/* WebAuthn PRF mode */}
                   {encryptionSettings.algorithm === 'age-webauthn' && (
                     <>
-                      <p className="text-sm text-slate-300">
-                        Choose how to create the encryption key for this file:
-                      </p>
-
-                      {/* Create New Credential */}
+                      {/* Create New Credential + Encrypt (combined) */}
                       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
                         <p className="text-sm font-medium text-emerald-200 mb-3">
-                          Create New Credential (Recommended)
+                          Create New Credential & Encrypt (Recommended)
                         </p>
                         <div className="flex gap-2">
                           <input
@@ -935,74 +918,99 @@ export default function Home() {
                           />
                           <button
                             type="button"
-                            onClick={handleCreateCredential}
+                            onClick={handleCreateAndEncrypt}
                             disabled={isProcessing || !workflow.customCredentialName.trim()}
                             className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50"
                           >
-                            {isProcessing ? 'Creating...' : 'Create'}
+                            {isProcessing ? 'Processing...' : 'Create & Encrypt'}
                           </button>
                         </div>
                         <p className="text-xs text-slate-400 mt-2">
-                          Creates a new passkey with this name (saved to your password manager)
+                          Creates a passkey and encrypts the file in one step
                         </p>
                       </div>
 
-                      {/* Select Existing Credential */}
-                      {credentials.length > 0 && (
-                        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
-                          <p className="text-sm font-medium text-blue-200 mb-3">
-                            Use Existing Credential
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {credentials.map((cred) => (
-                              <button
-                                key={cred.credentialId}
-                                onClick={() => handleSelectCredential(cred)}
-                                className={`rounded-lg border px-3 py-2 text-sm transition ${
-                                  workflow.selectedCredential?.credentialId === cred.credentialId
-                                    ? 'border-blue-400 bg-blue-500/20 text-blue-200'
-                                    : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                                }`}
-                              >
-                                {cred.keyName}{' '}
-                                <span className="text-xs opacity-70">
-                                  ({cred.type === 'fallback-pbkdf2' ? 'Fallback' : 'PRF'})
-                                </span>
-                              </button>
-                            ))}
-                          </div>
+                      {/* Collapsible: Existing Credential / Password Manager */}
+                      {(credentials.length > 0 || true) && (
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => setShowExistingOptions(!showExistingOptions)}
+                            className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-300 transition"
+                          >
+                            <svg
+                              className={`w-4 h-4 transition-transform ${showExistingOptions ? 'rotate-180' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                            Or use an existing credential / password manager
+                          </button>
+
+                          {showExistingOptions && (
+                            <div className="mt-3 space-y-3">
+                              {/* Select Existing Credential */}
+                              {credentials.length > 0 && (
+                                <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+                                  <p className="text-sm font-medium text-blue-200 mb-3">
+                                    Use Existing Credential
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {credentials.map((cred) => (
+                                      <button
+                                        key={cred.credentialId}
+                                        onClick={() => handleSelectCredential(cred)}
+                                        className={`rounded-lg border px-3 py-2 text-sm transition ${
+                                          workflow.selectedCredential?.credentialId === cred.credentialId
+                                            ? 'border-blue-400 bg-blue-500/20 text-blue-200'
+                                            : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                                        }`}
+                                      >
+                                        {cred.keyName}{' '}
+                                        <span className="text-xs opacity-70">
+                                          ({cred.type === 'fallback-pbkdf2' ? 'Fallback' : 'PRF'})
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* External Credential - Encryption */}
+                              <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
+                                <p className="text-sm font-medium text-purple-200 mb-3">
+                                  Use Password Manager
+                                </p>
+                                <button
+                                  onClick={handleUseExternalCredential}
+                                  className={`w-full rounded-lg border px-4 py-2 text-sm transition ${
+                                    workflow.credentialMode === 'select-external'
+                                      ? 'border-purple-400 bg-purple-500/20 text-purple-200'
+                                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                                  }`}
+                                >
+                                  Select from Google, iCloud, Bitwarden, 1Password, etc.
+                                </button>
+                                <p className="text-xs text-slate-400 mt-2">
+                                  Use an existing DPF passkey from your password manager
+                                </p>
+                              </div>
+
+                              {/* Proceed Button (for existing/external paths) */}
+                              {(workflow.selectedCredential || workflow.credentialMode === 'select-external') && (
+                                <button
+                                  onClick={handleProceedToEncryption}
+                                  disabled={isProcessing}
+                                  className="w-full rounded-lg bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50"
+                                >
+                                  {isProcessing ? 'Encrypting...' : 'Encrypt File →'}
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      )}
-
-                      {/* External Credential - Encryption */}
-                      <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
-                        <p className="text-sm font-medium text-purple-200 mb-3">
-                          Use Password Manager
-                        </p>
-                        <button
-                          onClick={handleUseExternalCredential}
-                          className={`w-full rounded-lg border px-4 py-2 text-sm transition ${
-                            workflow.credentialMode === 'select-external'
-                              ? 'border-purple-400 bg-purple-500/20 text-purple-200'
-                              : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                          }`}
-                        >
-                          Select from Google, iCloud, Bitwarden, 1Password, etc.
-                        </button>
-                        <p className="text-xs text-slate-400 mt-2">
-                          Use an existing passkey from your password manager
-                        </p>
-                      </div>
-
-                      {/* Proceed Button */}
-                      {(workflow.selectedCredential || workflow.credentialMode === 'select-external') && (
-                        <button
-                          onClick={handleProceedToEncryption}
-                          disabled={isProcessing}
-                          className="w-full rounded-lg bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50"
-                        >
-                          {isProcessing ? 'Encrypting...' : 'Encrypt File →'}
-                        </button>
                       )}
                     </>
                   )}

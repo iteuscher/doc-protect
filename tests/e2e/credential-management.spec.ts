@@ -41,7 +41,24 @@ test.describe('Credential Management', () => {
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
   }
 
-  test('should create a credential with custom name', async () => {
+  /**
+   * Helper to create a credential and encrypt, then complete the full flow
+   */
+  async function createAndEncryptFull(fileName: string, credName: string) {
+    await navigateToCredentialScreen(fileName);
+
+    const credentialInput = page.locator('input[placeholder="Credential name"]');
+    await credentialInput.fill(credName);
+    await page.locator('button:has-text("Create & Encrypt")').click();
+
+    // Create & Encrypt goes directly to Recipients
+    await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
+    await page.locator('button:has-text("Skip Recipients")').click();
+    await page.locator('button:has-text("Download Bundle")').click();
+    await expect(page.locator('text=Encryption Complete!')).toBeVisible();
+  }
+
+  test('should create a credential with custom name and encrypt', async () => {
     await navigateToCredentialScreen();
 
     const credentialName = 'My Custom Credential';
@@ -51,24 +68,21 @@ test.describe('Credential Management', () => {
     await credentialInput.fill(credentialName);
     await expect(credentialInput).toHaveValue(credentialName);
 
-    // Create button should be enabled
-    const createButton = page.locator('button:has-text("Create")');
+    // Create & Encrypt button should be enabled
+    const createButton = page.locator('button:has-text("Create & Encrypt")');
     await expect(createButton).toBeEnabled();
 
-    // Click create
+    // Click create & encrypt
     await createButton.click();
 
-    // Should proceed to encryption step
-    await expect(page.locator('text=Encrypt File →')).toBeVisible({ timeout: 10000 });
-
-    // Verify status message
-    await expect(page.locator(`text=Credential "${credentialName}" created successfully`)).toBeVisible();
+    // Should proceed directly to recipients step
+    await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
   });
 
   test('should disable create button when name is empty', async () => {
     await navigateToCredentialScreen();
 
-    const createButton = page.locator('button:has-text("Create")');
+    const createButton = page.locator('button:has-text("Create & Encrypt")');
     const credentialInput = page.locator('input[placeholder="Credential name"]');
 
     // Clear any pre-filled value first
@@ -105,26 +119,15 @@ test.describe('Credential Management', () => {
     const credentials = ['Credential One', 'Credential Two', 'Credential Three'];
 
     for (const credName of credentials) {
-      // Navigate to credential screen
-      await navigateToCredentialScreen(`file-${credName}.txt`);
-
-      // Create credential
-      const credentialInput = page.locator('input[placeholder="Credential name"]');
-      await credentialInput.fill(credName);
-      await page.locator('button:has-text("Create")').click();
-      await expect(page.locator('text=Encrypt File →')).toBeVisible({ timeout: 10000 });
-
-      // Complete the flow to start over
-      await page.locator('button:has-text("Encrypt File →")').click();
-      await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
-      await page.locator('button:has-text("Skip Recipients")').click();
-      await page.locator('button:has-text("Download Bundle")').click();
-      await expect(page.locator('text=Encryption Complete!')).toBeVisible();
+      await createAndEncryptFull(`file-${credName}.txt`, credName);
       await page.locator('button:has-text("Encrypt Another File")').click();
     }
 
     // Upload another file to see all credentials
     await navigateToCredentialScreen('final-test.txt');
+
+    // Expand the existing credentials dropdown
+    await page.locator('text=Or use an existing credential / password manager').click();
 
     // Should show "Use Existing Credential" section
     await expect(page.locator('text=Use Existing Credential')).toBeVisible();
@@ -137,24 +140,15 @@ test.describe('Credential Management', () => {
 
   test('should allow selecting an existing credential', async () => {
     // Create a credential
-    await navigateToCredentialScreen('first-file.txt');
     const credName = 'Selectable Credential';
-
-    const credentialInput = page.locator('input[placeholder="Credential name"]');
-    await credentialInput.fill(credName);
-    await page.locator('button:has-text("Create")').click();
-    await expect(page.locator('text=Encrypt File →')).toBeVisible({ timeout: 10000 });
-
-    // Complete flow and start over
-    await page.locator('button:has-text("Encrypt File →")').click();
-    await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
-    await page.locator('button:has-text("Skip Recipients")').click();
-    await page.locator('button:has-text("Download Bundle")').click();
-    await expect(page.locator('text=Encryption Complete!')).toBeVisible();
+    await createAndEncryptFull('first-file.txt', credName);
     await page.locator('button:has-text("Encrypt Another File")').click();
 
     // Upload new file
     await navigateToCredentialScreen('second-file.txt');
+
+    // Expand the existing credentials dropdown
+    await page.locator('text=Or use an existing credential / password manager').click();
 
     // Select the existing credential
     const credButton = page.locator(`button:has-text("${credName}")`).first();
@@ -163,7 +157,7 @@ test.describe('Credential Management', () => {
     // Button should be highlighted/selected
     await expect(credButton).toHaveClass(/blue/);
 
-    // Should show encrypt button
+    // Should show encrypt button inside the dropdown
     await expect(page.locator('text=Encrypt File →')).toBeVisible();
 
     // Status should update
@@ -171,19 +165,8 @@ test.describe('Credential Management', () => {
   });
 
   test('should display credential type (PRF or Fallback)', async () => {
-    // Create a credential
-    await navigateToCredentialScreen();
-
     const credName = 'Type Display Test';
-    const credentialInput = page.locator('input[placeholder="Credential name"]');
-    await credentialInput.fill(credName);
-    await page.locator('button:has-text("Create")').click();
-    await expect(page.locator('text=Encrypt File →')).toBeVisible({ timeout: 10000 });
-    await page.locator('button:has-text("Encrypt File →")').click();
-    await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
-    await page.locator('button:has-text("Skip Recipients")').click();
-    await page.locator('button:has-text("Download Bundle")').click();
-    await expect(page.locator('text=Encryption Complete!')).toBeVisible();
+    await createAndEncryptFull('test.txt', credName);
 
     // Expand technical info
     await page.locator('button:has-text("Technical Info")').click();
@@ -199,29 +182,10 @@ test.describe('Credential Management', () => {
   });
 
   test('should show credential ID in technical info', async () => {
-    // Create a credential
-    await navigateToCredentialScreen();
-
     const credName = 'ID Display Test';
-    const credentialInput = page.locator('input[placeholder="Credential name"]');
-    await credentialInput.fill(credName);
-    await page.locator('button:has-text("Create")').click();
-    await expect(page.locator('text=Encrypt File →')).toBeVisible({ timeout: 10000 });
+    await createAndEncryptFull('test.txt', credName);
 
     // Open technical info
-    await page.locator('button:has-text("Technical Info")').click();
-
-    // Initially should show "No credentials stored" since it's not persisted yet
-    // After completing the flow, it should show the credential
-    await page.locator('button:has-text("Technical Info")').click(); // Close
-
-    await page.locator('button:has-text("Encrypt File →")').click();
-    await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
-    await page.locator('button:has-text("Skip Recipients")').click();
-    await page.locator('button:has-text("Download Bundle")').click();
-    await expect(page.locator('text=Encryption Complete!')).toBeVisible();
-
-    // Open technical info again
     await page.locator('button:has-text("Technical Info")').click();
     await expect(page.locator('text=Stored Credentials')).toBeVisible();
 
@@ -239,6 +203,9 @@ test.describe('Credential Management', () => {
 
   test('should handle external credential mode', async () => {
     await navigateToCredentialScreen();
+
+    // Expand the existing credentials dropdown
+    await page.locator('text=Or use an existing credential / password manager').click();
 
     // Click "Use Password Manager"
     const pwdMgrButton = page.locator('button:has-text("Select from Google, iCloud")');
@@ -258,15 +225,18 @@ test.describe('Credential Management', () => {
     await navigateToCredentialScreen();
 
     // Should show recommendation text
-    await expect(page.locator('text=Create New Credential (Recommended)')).toBeVisible();
-    await expect(page.locator('text=Creates a new passkey with this name')).toBeVisible();
+    await expect(page.locator('text=Create New Credential & Encrypt (Recommended)')).toBeVisible();
+    await expect(page.locator('text=Creates a passkey and encrypts the file in one step')).toBeVisible();
   });
 
   test('should show helpful text for password manager option', async () => {
     await navigateToCredentialScreen();
 
+    // Expand the existing credentials dropdown
+    await page.locator('text=Or use an existing credential / password manager').click();
+
     // Should show password manager text
-    await expect(page.locator('text=Use an existing passkey from your password manager')).toBeVisible();
+    await expect(page.locator('text=Use an existing DPF passkey from your password manager')).toBeVisible();
   });
 
   test('should display PRF support status in technical info', async () => {
@@ -298,18 +268,8 @@ test.describe('Credential Management', () => {
 
   test('should reset all data when reset button is clicked', async () => {
     // Create a credential first
-    await navigateToCredentialScreen();
-
     const credName = 'To Be Deleted';
-    const credentialInput = page.locator('input[placeholder="Credential name"]');
-    await credentialInput.fill(credName);
-    await page.locator('button:has-text("Create")').click();
-    await expect(page.locator('text=Encrypt File →')).toBeVisible({ timeout: 10000 });
-    await page.locator('button:has-text("Encrypt File →")').click();
-    await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
-    await page.locator('button:has-text("Skip Recipients")').click();
-    await page.locator('button:has-text("Download Bundle")').click();
-    await expect(page.locator('text=Encryption Complete!')).toBeVisible();
+    await createAndEncryptFull('test.txt', credName);
 
     // Verify credential exists
     await page.locator('button:has-text("Technical Info")').click();
@@ -330,18 +290,8 @@ test.describe('Credential Management', () => {
 
   test('should not reset when canceling confirmation', async () => {
     // Create a credential
-    await navigateToCredentialScreen();
-
     const credName = 'Should Remain';
-    const credentialInput = page.locator('input[placeholder="Credential name"]');
-    await credentialInput.fill(credName);
-    await page.locator('button:has-text("Create")').click();
-    await expect(page.locator('text=Encrypt File →')).toBeVisible({ timeout: 10000 });
-    await page.locator('button:has-text("Encrypt File →")').click();
-    await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
-    await page.locator('button:has-text("Skip Recipients")').click();
-    await page.locator('button:has-text("Download Bundle")').click();
-    await expect(page.locator('text=Encryption Complete!')).toBeVisible();
+    await createAndEncryptFull('test.txt', credName);
 
     // Dismiss the reset confirmation
     page.on('dialog', dialog => dialog.dismiss());

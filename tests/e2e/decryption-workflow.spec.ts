@@ -46,14 +46,12 @@ test.describe('Decryption Workflow', () => {
 
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
-    // Create credential
+    // Create credential and encrypt in one step
     const credentialInput = page.locator('input[placeholder="Credential name"]');
     await credentialInput.fill(credentialName);
-    await page.locator('button:has-text("Create")').click();
-    await expect(page.locator('text=Encrypt File →')).toBeVisible({ timeout: 10000 });
+    await page.locator('button:has-text("Create & Encrypt")').click();
 
-    // Encrypt
-    await page.locator('button:has-text("Encrypt File →")').click();
+    // Goes directly to Recipients
     await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
 
     // Skip recipients
@@ -83,9 +81,9 @@ test.describe('Decryption Workflow', () => {
 
     // Should navigate to verify identity
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
-    await expect(page.locator(`text=${dpfFileName}`)).toBeVisible();
-    await expect(page.locator('text=This is an encrypted DPF file (will be decrypted)')).toBeVisible();
-    await expect(page.locator('text=DPF file detected. Ready to decrypt.')).toBeVisible();
+
+    // Status should show DPF detection
+    await expect(page.locator(`text=Ready to decrypt: ${dpfFileName}`)).toBeVisible();
   });
 
   test('should show credential selection options for decryption', async () => {
@@ -153,7 +151,6 @@ test.describe('Decryption Workflow', () => {
     await fileInput.setInputFiles(dpfPath!);
 
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
-    await expect(page.locator('text=This is an encrypted DPF file (will be decrypted)')).toBeVisible();
 
     // Should see the credential we created
     await expect(page.locator('text=Use Stored Credential')).toBeVisible();
@@ -224,15 +221,16 @@ test.describe('Decryption Workflow', () => {
   });
 
   test('should display decryption progress in status', async () => {
+    const dpfFileName = 'status-test.dpf';
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles({
-      name: 'status-test.dpf',
+      name: dpfFileName,
       mimeType: 'application/zip',
       buffer: Buffer.from('mock dpf'),
     });
 
     // Check initial status
-    await expect(page.locator('text=DPF file detected. Ready to decrypt.')).toBeVisible();
+    await expect(page.locator(`text=Ready to decrypt: ${dpfFileName}`)).toBeVisible();
 
     // Select external credential
     await page.locator('button:has-text("Select from Google, iCloud")').click();
@@ -253,10 +251,6 @@ test.describe('Decryption Workflow', () => {
     await expect(page.locator('[class*="emerald"]', { hasText: 'Identity' })).toBeVisible();
 
     // Should NOT show Recipients or Share steps (those are encryption-only)
-    const recipientsIndicator = page.locator('text=Recipients').first();
-    const shareIndicator = page.locator('text=Share').first();
-
-    // These may not be visible for decryption workflow
     // Just verify the page is showing the decryption path
     await expect(page.locator('text=Select the credential used to encrypt')).toBeVisible();
   });

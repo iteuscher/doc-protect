@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   detectPRFSupport,
+  detectPRFSupportLazy,
   getCachedPRFSupport,
   clearPRFCache,
   testPRFWithAuthenticatorType
@@ -37,7 +38,34 @@ describe('PRF detection', () => {
     mockUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 13_0)');
   });
 
-  it('detects PRF support when extension succeeds', async () => {
+  it('uses heuristic on known macOS platform without creating test credential', async () => {
+    const { create } = mockNavigatorCredentials();
+
+    const result = await detectPRFSupport(true);
+
+    expect(result.supported).toBe(true);
+    expect(result.fallbackRequired).toBe(false);
+    // Should NOT create a test credential on known platforms
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('uses heuristic on Windows and detects no PRF support', async () => {
+    mockUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+    const { create } = mockNavigatorCredentials();
+
+    const result = await detectPRFSupport(true);
+
+    expect(result.supported).toBe(false);
+    expect(result.fallbackRequired).toBe(true);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('falls back to test credential on unknown platform', async () => {
+    mockUserAgent('Mozilla/5.0 (Unknown Platform)');
+    Object.defineProperty(window.navigator, 'userAgentData', {
+      configurable: true,
+      value: { platform: 'Unknown' }
+    });
     const { create } = mockNavigatorCredentials();
     create.mockResolvedValue({
       getClientExtensionResults: () => ({
@@ -52,7 +80,12 @@ describe('PRF detection', () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 
-  it('falls back when PRF creation fails', async () => {
+  it('falls back when PRF creation fails on unknown platform', async () => {
+    mockUserAgent('Mozilla/5.0 (Unknown Platform)');
+    Object.defineProperty(window.navigator, 'userAgentData', {
+      configurable: true,
+      value: { platform: 'Unknown' }
+    });
     const { create } = mockNavigatorCredentials();
     create.mockRejectedValue(new Error('Not supported'));
 
@@ -63,22 +96,14 @@ describe('PRF detection', () => {
   });
 
   it('returns cached result without new PRF attempt', async () => {
-    const { create } = mockNavigatorCredentials();
-    create.mockResolvedValue({
-      getClientExtensionResults: () => ({
-        prf: { enabled: true, results: { first: new Uint8Array([1]) } }
-      })
-    });
+    mockNavigatorCredentials();
 
     const first = await detectPRFSupport(true);
     expect(first.supported).toBe(true);
 
-    // Change mock to ensure subsequent call would fail if invoked
-    create.mockRejectedValue(new Error('Should not be used'));
     const second = await detectPRFSupport();
 
     expect(second.supported).toBe(true);
-    expect(create).toHaveBeenCalledTimes(1);
     expect(getCachedPRFSupport()).not.toBeNull();
   });
 
@@ -96,6 +121,52 @@ describe('PRF detection', () => {
 
     const selection = create.mock.calls[0][0].publicKey.authenticatorSelection;
     expect(selection.authenticatorAttachment).toBe('cross-platform');
+  });
+});
+
+describe('detectPRFSupportLazy', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+    clearPRFCache();
+  });
+
+  it('returns cached result if available', async () => {
+    mockUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 13_0)');
+    // Prime the cache
+    await detectPRFSupport(true);
+
+    const result = detectPRFSupportLazy();
+    expect(result).not.toBeNull();
+    expect(result!.supported).toBe(true);
+  });
+
+  it('returns heuristic result on known platform without cache', () => {
+    mockUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 13_0)');
+
+    const result = detectPRFSupportLazy();
+    expect(result).not.toBeNull();
+    expect(result!.supported).toBe(true);
+  });
+
+  it('returns null on unknown platform without cache', () => {
+    mockUserAgent('Mozilla/5.0 (Unknown Platform)');
+    Object.defineProperty(window.navigator, 'userAgentData', {
+      configurable: true,
+      value: { platform: 'Unknown' }
+    });
+
+    const result = detectPRFSupportLazy();
+    expect(result).toBeNull();
+  });
+
+  it('returns fallback result on Windows', () => {
+    mockUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+
+    const result = detectPRFSupportLazy();
+    expect(result).not.toBeNull();
+    expect(result!.supported).toBe(false);
+    expect(result!.fallbackRequired).toBe(true);
   });
 });
 

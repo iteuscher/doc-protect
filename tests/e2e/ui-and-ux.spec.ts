@@ -90,7 +90,7 @@ test.describe('UI and UX Features', () => {
 
   test.describe('File Upload Interface', () => {
     test('should show drag and drop area', async () => {
-      const dropZone = page.locator('text=Drag & drop or click anywhere to select');
+      const dropZone = page.locator('text=Drag & drop or click to select');
       await expect(dropZone).toBeVisible();
     });
 
@@ -100,7 +100,7 @@ test.describe('UI and UX Features', () => {
     });
 
     test('should show file type hint', async () => {
-      await expect(page.locator('text=.rico files will be decrypted • Other files will be encrypted')).toBeVisible();
+      await expect(page.locator('text=.rico → decrypt • everything else → encrypt')).toBeVisible();
     });
 
     test('should show Choose File button', async () => {

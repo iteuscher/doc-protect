@@ -90,17 +90,13 @@ test.describe('UI and UX Features', () => {
 
   test.describe('File Upload Interface', () => {
     test('should show drag and drop area', async () => {
-      const dropZone = page.locator('text=Drag & drop or click to select a file');
+      const dropZone = page.locator('text=Drag & drop or click to select');
       await expect(dropZone).toBeVisible();
     });
 
     test('should display upload icon', async () => {
       const uploadIcon = page.locator('svg').first();
       await expect(uploadIcon).toBeVisible();
-    });
-
-    test('should show file type hint', async () => {
-      await expect(page.locator('text=.rico → decrypt • everything else → encrypt')).toBeVisible();
     });
 
     test('should show Choose File button', async () => {

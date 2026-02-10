@@ -839,14 +839,11 @@ export default function Home() {
               </div>
               <div>
                 <p className="text-lg font-medium text-white mb-2">Upload a File</p>
-                <p className="text-sm text-slate-400">Drag & drop or click to select a file</p>
+                <p className="text-sm text-slate-400">Drag & drop or click to select</p>
               </div>
               <div className="rounded-full bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400">
                 Choose File
               </div>
-              <p className="text-xs text-slate-500">
-                .rico → decrypt • everything else → encrypt
-              </p>
               <input type="file" className="hidden" onChange={handleFileChange} />
             </label>
           </section>

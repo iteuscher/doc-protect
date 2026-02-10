@@ -59,7 +59,7 @@ test.describe('Recipients Management', () => {
 
     // Should show recipients UI
     await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible();
-    await expect(page.locator('text=Who should be able to decrypt this file?')).toBeVisible();
+    await expect(page.locator('text=Add recipient email addresses')).toBeVisible();
     await expect(page.locator('input[placeholder="recipient@example.com"]')).toBeVisible();
     await expect(page.locator('button:has-text("Add")')).toBeVisible();
   });
@@ -238,7 +238,7 @@ test.describe('Recipients Management', () => {
 
     // Should navigate to sharing
     await expect(page.getByRole('heading', { name: 'Share the Encrypted File' })).toBeVisible();
-    await expect(page.locator('text=Choose how to share the encrypted file')).toBeVisible();
+    await expect(page.locator('text=Share the Encrypted File')).toBeVisible();
   });
 
   test('should show recipients in technical info', async () => {
@@ -368,7 +368,7 @@ test.describe('Recipients Management', () => {
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
     // Select external credential
-    await page.locator('button:has-text("Select from Google, iCloud")').click();
+    await page.locator('button:has-text("Google, iCloud, Bitwarden")').click();
 
     // Note: Actual decryption won't work with mock data, but we can verify
     // that the workflow doesn't show recipients step

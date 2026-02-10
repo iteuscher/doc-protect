@@ -18,6 +18,8 @@ Rico is a file encryption platform that lets you encrypt and securely share file
 
 Rico runs locally in the browser to promote privacy and interfaces with identity providers such as hardware tokens, passkeys, and SSO in order to provide a passwordless approach to key generation and encryption. This enables individuals and enterprises to store and share documents securely without relying on shared passwords.
 
+Adobe PDF or Microsoft Word password protection are commonly used and easy to navigate. However they rely on a shared password that cannot be changed once the password is set. Additionally, there is no rate limiting on attempts to crack the password and sharing requires giving full control to the person who the document is shared with. Rico is innovative as it ties together modern advances in encryption methods and passwordless authentication to create a stronger encryption model for documents.
+
 ## Versioning
 The current Rico version is v0.1 as it is in active research and development. Until v1.0 is released, the system is considered to be in a pre-alpha state and is not ready for production use.
 

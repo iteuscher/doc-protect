@@ -1,6 +1,6 @@
 # Local Testing Guide
 
-This guide walks you through setting up and testing DocProtect locally.
+This guide walks you through setting up and testing Rico locally.
 
 ## Prerequisites
 
@@ -87,16 +87,16 @@ npm run test:watch
    - Click to select a file
    - The app will automatically detect it's not encrypted and start encryption
    - Authenticate with your passkey when prompted
-   - Download the `.dpf` bundle file
+   - Download the `.rico` bundle file
 
 4. **Verify encryption**:
-   - Check that the downloaded file has `.dpf` extension
+   - Check that the downloaded file has `.rico` extension
    - File should be larger than original (contains manifest + encrypted payload)
 
 ### 3. Manual Testing - Decryption Flow
 
 1. **Decrypt a bundle**:
-   - Drag and drop a `.dpf` file onto the upload area
+   - Drag and drop a `.rico` file onto the upload area
    - The app will detect it's encrypted
    - Select the credential used for encryption
    - Authenticate with your passkey
@@ -127,7 +127,7 @@ If you're on Windows 10/11:
 Open browser DevTools (F12) to see:
 
 - **Console logs**: Status messages, errors, warnings
-- **Application tab**: IndexedDB storage (DocProtect database)
+- **Application tab**: IndexedDB storage (Rico database)
 - **Network tab**: API calls (if backend is configured)
 
 ## Common Issues
@@ -147,7 +147,7 @@ Open browser DevTools (F12) to see:
 
 **Solutions**:
 - Check browser console for errors
-- Try clearing PRF cache: Open console, run `localStorage.removeItem('docprotect:prf-support')`
+- Try clearing PRF cache: Open console, run `localStorage.removeItem('rico:prf-support')`
 - Refresh page and try again
 
 ### Files Not Encrypting
@@ -227,7 +227,7 @@ Test encrypting/decrypting multiple files in sequence to verify:
 ### Verify Local Storage
 
 1. Open DevTools → Application → IndexedDB
-2. Check `DocProtect` database
+2. Check `Rico` database
 3. Verify:
    - Credentials are stored (but not sensitive keys)
    - No plaintext file data
@@ -236,7 +236,7 @@ Test encrypting/decrypting multiple files in sequence to verify:
 ### Verify Encryption
 
 1. Encrypt a file
-2. Open the `.dpf` bundle with a ZIP tool
+2. Open the `.rico` bundle with a ZIP tool
 3. Verify:
    - `manifest.json` contains metadata (not sensitive)
    - `0.payload` is encrypted (random bytes, not readable)

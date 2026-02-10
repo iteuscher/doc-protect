@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     await enforceRateLimit(supabase, ownerIdentity);
 
     const buffer = Buffer.from(await bundleFile.arrayBuffer());
-    const objectKey = `bundles/${ownerIdentity}/${crypto.randomUUID()}.dpf`;
+    const objectKey = `bundles/${ownerIdentity}/${crypto.randomUUID()}.rico`;
     const { error: uploadError } = await supabase.storage
       .from(SUPABASE_BUNDLE_BUCKET)
       .upload(objectKey, buffer, {

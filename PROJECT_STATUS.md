@@ -18,7 +18,7 @@
 #### Encryption & Decryption
 - [x] File encryption using age-encryption
 - [x] File decryption with WebAuthn authentication
-- [x] Bundle format (.dpf) with manifest
+- [x] Bundle format (.rico) with manifest
 - [x] Multi-recipient support (structure ready)
 - [x] Policy object in manifest
 

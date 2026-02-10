@@ -30,8 +30,8 @@ test.describe('UI and UX Features', () => {
   });
 
   test.describe('Header and Branding', () => {
-    test('should display DocProtect branding', async () => {
-      await expect(page.locator('text=DocProtect')).toBeVisible();
+    test('should display Rico branding', async () => {
+      await expect(page.locator('text=Rico')).toBeVisible();
       await expect(page.locator('text=Passwordless Document Encryption')).toBeVisible();
     });
 
@@ -56,18 +56,18 @@ test.describe('UI and UX Features', () => {
         buffer: Buffer.from('test'),
       });
 
-      await expect(page.locator('text=Standard file detected. Ready to encrypt.')).toBeVisible();
+      await expect(page.locator('text=Ready to encrypt: status-test.txt')).toBeVisible();
     });
 
-    test('should show different status for DPF files', async () => {
+    test('should show different status for Rico files', async () => {
       const fileInput = page.locator('input[type="file"]');
       await fileInput.setInputFiles({
-        name: 'test.dpf',
+        name: 'test.rico',
         mimeType: 'application/zip',
-        buffer: Buffer.from('mock dpf'),
+        buffer: Buffer.from('mock rico'),
       });
 
-      await expect(page.locator('text=DPF file detected. Ready to decrypt.')).toBeVisible();
+      await expect(page.locator('text=Ready to decrypt: test.rico')).toBeVisible();
     });
 
     test('should display error messages in red', async () => {
@@ -84,7 +84,6 @@ test.describe('UI and UX Features', () => {
       // This test verifies that errors are styled correctly
       // Since we can't easily trigger an error without proper setup,
       // we'll just verify the error styling exists
-      const errorElement = page.locator('[class*="text-red"]').first();
       // Error may not be visible initially, which is fine
     });
   });
@@ -101,7 +100,7 @@ test.describe('UI and UX Features', () => {
     });
 
     test('should show file type hint', async () => {
-      await expect(page.locator('text=.dpf files will be decrypted • Other files will be encrypted')).toBeVisible();
+      await expect(page.locator('text=.rico files will be decrypted • Other files will be encrypted')).toBeVisible();
     });
 
     test('should show Choose File button', async () => {
@@ -199,7 +198,7 @@ test.describe('UI and UX Features', () => {
       const credentialInput = page.locator('input[placeholder="Credential name"]');
       await credentialInput.fill('Test');
 
-      const createButton = page.locator('button:has-text("Create")');
+      const createButton = page.locator('button:has-text("Create & Encrypt")');
 
       // Button should show loading state when clicked
       // Note: This happens very fast in tests, so we just verify the button exists
@@ -216,12 +215,12 @@ test.describe('UI and UX Features', () => {
 
       await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
-      // Create button should be emerald/green
-      const createSection = page.locator('text=Create New Credential (Recommended)').locator('..');
+      // Create & Encrypt section should be emerald/green
+      const createSection = page.locator('text=Create New Credential & Encrypt (Recommended)').locator('..');
       await expect(createSection).toHaveClass(/emerald/);
 
-      // Use existing should be blue
-      // Password manager should be purple
+      // Use existing should be blue (after expanding dropdown)
+      // Password manager should be purple (after expanding dropdown)
     });
 
     test('should show hover effects on buttons', async () => {
@@ -241,11 +240,10 @@ test.describe('UI and UX Features', () => {
         buffer: Buffer.from('test'),
       });
 
+      // Create & Encrypt goes directly to Recipients
       const credentialInput = page.locator('input[placeholder="Credential name"]');
       await credentialInput.fill('Test');
-      await page.locator('button:has-text("Create")').click();
-      await expect(page.locator('text=Encrypt File →')).toBeVisible({ timeout: 10000 });
-      await page.locator('button:has-text("Encrypt File →")').click();
+      await page.locator('button:has-text("Create & Encrypt")').click();
       await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
       await page.locator('button:has-text("Skip Recipients")').click();
       await expect(page.locator('text=Share the Encrypted File')).toBeVisible();
@@ -257,7 +255,7 @@ test.describe('UI and UX Features', () => {
 
       // Download option
       await expect(page.locator('text=Download Bundle')).toBeVisible();
-      await expect(page.locator('text=Download the .dpf file to share directly')).toBeVisible();
+      await expect(page.locator('text=Download the .rico file to share directly')).toBeVisible();
 
       // Cloud storage option
       await expect(page.locator('text=Store in Cloud')).toBeVisible();
@@ -332,14 +330,11 @@ test.describe('UI and UX Features', () => {
 
       const credentialInput = page.locator('input[placeholder="Credential name"]');
       await credentialInput.fill('Test');
-      await page.locator('button:has-text("Create")').click();
-      await expect(page.locator('text=Encrypt File →')).toBeVisible({ timeout: 10000 });
 
-      // When clicking encrypt, should show processing state
-      await page.locator('button:has-text("Encrypt File →")').click();
+      // When clicking Create & Encrypt, should show processing state then move to next step
+      await page.locator('button:has-text("Create & Encrypt")').click();
 
-      // Status should update to show encryption in progress (briefly)
-      // Then move to next step
+      // Should move to recipients step
       await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
     });
   });
@@ -381,8 +376,10 @@ test.describe('UI and UX Features', () => {
       });
 
       // Action buttons should have clear labels
-      await expect(page.locator('text=Create New Credential (Recommended)')).toBeVisible();
-      // Note: "Use Existing Credential" only appears when there are stored credentials
+      await expect(page.locator('text=Create New Credential & Encrypt (Recommended)')).toBeVisible();
+
+      // Password manager is inside the collapsible dropdown
+      await page.locator('text=Or use an existing credential / password manager').click();
       await expect(page.locator('text=Use Password Manager')).toBeVisible();
     });
 
@@ -400,7 +397,7 @@ test.describe('UI and UX Features', () => {
   });
 
   test.describe('File Information Display', () => {
-    test('should show uploaded file information', async () => {
+    test('should show file information in status', async () => {
       const fileName = 'my-document.pdf';
       const fileInput = page.locator('input[type="file"]');
       await fileInput.setInputFiles({
@@ -409,11 +406,11 @@ test.describe('UI and UX Features', () => {
         buffer: Buffer.from('pdf content'),
       });
 
-      await expect(page.locator('text=Uploaded File:')).toBeVisible();
-      await expect(page.locator(`text=${fileName}`)).toBeVisible();
+      // File info is now in the status section
+      await expect(page.locator(`text=Ready to encrypt: ${fileName}`)).toBeVisible();
     });
 
-    test('should show file type indicator emoji', async () => {
+    test('should show different status for standard vs Rico files', async () => {
       const fileInput = page.locator('input[type="file"]');
 
       // Standard file
@@ -423,19 +420,19 @@ test.describe('UI and UX Features', () => {
         buffer: Buffer.from('test'),
       });
 
-      await expect(page.locator('text=📄')).toBeVisible();
+      await expect(page.locator('text=Ready to encrypt: doc.txt')).toBeVisible();
 
       // Start over
       await page.locator('text=← Back to File Upload').click();
 
-      // DPF file
+      // Rico file
       await fileInput.setInputFiles({
-        name: 'encrypted.dpf',
+        name: 'encrypted.rico',
         mimeType: 'application/zip',
-        buffer: Buffer.from('dpf'),
+        buffer: Buffer.from('rico'),
       });
 
-      await expect(page.locator('text=🔒')).toBeVisible();
+      await expect(page.locator('text=Ready to decrypt: encrypted.rico')).toBeVisible();
     });
   });
 });

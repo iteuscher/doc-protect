@@ -39,7 +39,7 @@ export async function detectPRFSupport(): Promise<PRFSupportResult> {
         challenge: crypto.getRandomValues(new Uint8Array(32)),
         rp: {
           id: window.location.hostname,
-          name: 'DocProtect PRF Test'
+          name: 'Rico PRF Test'
         },
         user: {
           id: crypto.getRandomValues(new Uint8Array(16)),
@@ -101,7 +101,7 @@ export async function detectPRFSupport(): Promise<PRFSupportResult> {
 ### Step 2: Cache Detection Result
 ```typescript
 // Store in localStorage to avoid repeated prompts
-const PRF_SUPPORT_CACHE_KEY = 'docprotect:prf-support';
+const PRF_SUPPORT_CACHE_KEY = 'rico:prf-support';
 
 export async function getPRFSupport(): Promise<PRFSupportResult> {
   // Check cache first (valid for 7 days)
@@ -157,7 +157,7 @@ export async function createFallbackCredential(options: {
       challenge: crypto.getRandomValues(new Uint8Array(32)),
       rp: {
         id: window.location.hostname,
-        name: 'DocProtect'
+        name: 'Rico'
       },
       user: {
         id: new TextEncoder().encode(options.userId),
@@ -389,11 +389,11 @@ describe('PRF Fallback', () => {
       keyName: 'Test Key'
     });
     
-    const file = new File(['Hello, DocProtect!'], 'test.txt');
+    const file = new File(['Hello, Rico!'], 'test.txt');
     const encrypted = await encryptWithFallback(file, credential);
     const decrypted = await decryptWithFallback(encrypted, credential);
     
-    expect(new TextDecoder().decode(decrypted)).toBe('Hello, DocProtect!');
+    expect(new TextDecoder().decode(decrypted)).toBe('Hello, Rico!');
   });
 });
 ```

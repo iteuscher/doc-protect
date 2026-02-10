@@ -28,7 +28,7 @@ const PBKDF2_ITERATIONS = 100_000;
  * const credential = await createFallbackCredential({
  *   userId: 'alice@company.com',
  *   userName: 'Alice',
- *   keyName: 'DocProtect Fallback Key'
+ *   keyName: 'Rico Fallback Key'
  * });
  * 
  * console.log('⚠️ Using fallback mode');
@@ -48,7 +48,7 @@ export async function createFallbackCredential(options: {
       challenge: crypto.getRandomValues(new Uint8Array(32)),
       rp: {
         id: window.location.hostname,
-        name: 'DocProtect Fallback'
+        name: 'Rico Fallback'
       },
       user: {
         id: new TextEncoder().encode(userId),

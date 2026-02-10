@@ -1,6 +1,6 @@
 # Future Development Phases
 
-This document outlines planned improvements and features for DocProtect beyond the current MVP.
+This document outlines planned improvements and features for Rico beyond the current MVP.
 
 ## Current Status: MVP (v0.1.0)
 
@@ -9,7 +9,7 @@ The current implementation includes:
 - Local file encryption/decryption
 - Credential management (IndexedDB)
 - Unified encrypt/decrypt UI
-- Bundle format (.dpf) with manifest
+- Bundle format (.rico) with manifest
 - Basic API routes (Supabase integration)
 - Unit tests
 
@@ -347,7 +347,7 @@ The current implementation includes:
 
 ### Backward Compatibility
 
-- All phases maintain backward compatibility with `.dpf` format
+- All phases maintain backward compatibility with `.rico` format
 - Manifest versioning ensures old bundles still work
 - Graceful degradation for missing features
 

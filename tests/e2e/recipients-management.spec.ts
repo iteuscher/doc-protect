@@ -29,6 +29,7 @@ test.describe('Recipients Management', () => {
 
   /**
    * Helper to navigate to recipients screen
+   * Uses Create & Encrypt which goes directly to Recipients
    */
   async function navigateToRecipientsScreen(
     fileName = 'test.txt',
@@ -44,14 +45,12 @@ test.describe('Recipients Management', () => {
 
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
-    // Create credential
+    // Create credential and encrypt in one step
     const credentialInput = page.locator('input[placeholder="Credential name"]');
     await credentialInput.fill(credentialName);
-    await page.locator('button:has-text("Create")').click();
-    await expect(page.locator('text=Encrypt File →')).toBeVisible({ timeout: 10000 });
+    await page.locator('button:has-text("Create & Encrypt")').click();
 
-    // Encrypt to reach recipients screen
-    await page.locator('button:has-text("Encrypt File →")').click();
+    // Goes directly to Recipients
     await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
   }
 
@@ -366,12 +365,12 @@ test.describe('Recipients Management', () => {
   });
 
   test('should only show recipients step for encryption, not decryption', async () => {
-    // This is verified by uploading a DPF file
+    // This is verified by uploading a Rico file
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles({
-      name: 'test.dpf',
+      name: 'test.rico',
       mimeType: 'application/zip',
-      buffer: Buffer.from('mock dpf content'),
+      buffer: Buffer.from('mock rico content'),
     });
 
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
@@ -381,7 +380,7 @@ test.describe('Recipients Management', () => {
 
     // Note: Actual decryption won't work with mock data, but we can verify
     // that the workflow doesn't show recipients step
-    // The progress indicator should not show Recipients for DPF files
+    // The progress indicator should not show Recipients for Rico files
     const progressBar = page.locator('[class*="sticky"]').first();
     const hasRecipientsStep = await progressBar.locator('text=Recipients').isVisible();
 

@@ -82,7 +82,7 @@ describe('Fallback WebAuthn helpers', () => {
     });
 
     const fileLike = {
-      arrayBuffer: async () => new TextEncoder().encode('DocProtect').buffer,
+      arrayBuffer: async () => new TextEncoder().encode('Rico').buffer,
       type: 'text/plain',
       name: 'doc.txt',
       size: 10
@@ -99,7 +99,7 @@ describe('Fallback WebAuthn helpers', () => {
       credential
     );
 
-    expect(new TextDecoder().decode(decrypted)).toBe('DocProtect');
+    expect(new TextDecoder().decode(decrypted)).toBe('Rico');
 
     const getCalls = navigatorMocks.get.mock.calls;
     expect(getCalls).toHaveLength(2);

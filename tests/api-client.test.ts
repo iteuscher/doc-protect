@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { DocProtectManifest } from '@/lib/types/bundle';
+import type { RicoManifest } from '@/lib/types/bundle';
 import {
   uploadBundle,
   listBundles,
@@ -8,12 +8,12 @@ import {
 } from '@/lib/api/client';
 
 const fetchMock = vi.fn();
-const testManifest: DocProtectManifest = {
+const testManifest: RicoManifest = {
   version: '1.0.0',
   manifestVersion: 1,
   createdAt: new Date().toISOString(),
   fileInfo: {
-    name: 'secret.dpf',
+    name: 'secret.rico',
     type: 'application/zip',
     encryptedSize: 10
   },
@@ -53,7 +53,7 @@ describe('API client', () => {
       ownerIdentity: 'AGE-OWNER',
       manifest: testManifest,
       bundleBlob: new Blob(['data']),
-      fileName: 'secret.dpf'
+      fileName: 'secret.rico'
     });
 
     expect(fetchMock).toHaveBeenCalledWith('/api/bundles', expect.objectContaining({ method: 'POST' }));
@@ -62,7 +62,7 @@ describe('API client', () => {
   it('lists bundles for owner', async () => {
     // set window location origin for URL constructor
     Object.defineProperty(window, 'location', {
-      value: new URL('https://docprotect.local'),
+      value: new URL('https://rico.local'),
       writable: true
     });
 

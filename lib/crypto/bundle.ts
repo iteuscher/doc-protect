@@ -1,47 +1,47 @@
 /**
- * DocProtect Bundle Creation and Parsing
- * 
- * Handles the .dpf (DocProtect File) format, which is a zip containing:
+ * Rico Bundle Creation and Parsing
+ *
+ * Handles the .rico (Rico File) format, which is a zip containing:
  * - manifest.json (metadata and policy)
  * - 0.payload (age-encrypted binary)
- * 
+ *
  * References:
  * - JSZip: https://stuk.github.io/jszip/
  * - OpenTDF manifest: https://opentdf.io/spec/schema/opentdf/manifest
  */
 
 import JSZip from 'jszip';
-import type { DocProtectBundle, DocProtectManifest } from '@/lib/types/bundle';
+import type { RicoBundle, RicoManifest } from '@/lib/types/bundle';
 import { validatePolicy } from './manifest';
 
 /**
- * Create DocProtect bundle (.dpf file)
- * 
+ * Create Rico bundle (.rico file)
+ *
  * Creates a zip file containing:
  * 1. manifest.json - Metadata, policy, recipient list
  * 2. 0.payload - age-encrypted file (binary)
- * 
- * @param manifest - DocProtect manifest object
+ *
+ * @param manifest - Rico manifest object
  * @param encryptedPayload - age-encrypted file data
- * @returns DocProtect bundle with blob
- * 
+ * @returns Rico bundle with blob
+ *
  * @example
  * ```typescript
  * const bundle = await createBundle(manifest, encryptedData);
- * 
+ *
  * // Download bundle
  * const url = URL.createObjectURL(bundle.blob);
  * const a = document.createElement('a');
  * a.href = url;
- * a.download = 'document.dpf';
+ * a.download = 'document.rico';
  * a.click();
  * ```
  */
 export async function createBundle(
-  manifest: DocProtectManifest,
+  manifest: RicoManifest,
   encryptedPayload: Uint8Array,
   existingBundleId?: string
-): Promise<DocProtectBundle> {
+): Promise<RicoBundle> {
   const zip = new JSZip();
   zip.file('manifest.json', compressManifest(manifest));
   zip.file('0.payload', encryptedPayload);
@@ -68,15 +68,15 @@ export async function createBundle(
 }
 
 /**
- * Parse DocProtect bundle
- * 
- * Extracts manifest and encrypted payload from .dpf file
- * 
- * @param bundleBlob - Bundle file (.dpf)
+ * Parse Rico bundle
+ *
+ * Extracts manifest and encrypted payload from .rico file
+ *
+ * @param bundleBlob - Bundle file (.rico)
  * @returns Parsed bundle with manifest and payload
- * 
+ *
  * @throws Error if bundle is invalid or corrupted
- * 
+ *
  * @example
  * ```typescript
  * const bundle = await parseBundle(uploadedFile);
@@ -85,7 +85,7 @@ export async function createBundle(
  * ```
  */
 export async function parseBundle(bundleBlob: Blob): Promise<{
-  manifest: DocProtectManifest;
+  manifest: RicoManifest;
   encryptedPayload: Uint8Array;
   bundleId: string;
 }> {
@@ -97,7 +97,7 @@ export async function parseBundle(bundleBlob: Blob): Promise<{
   }
 
   const manifestContent = await manifestFile.async('string');
-  let manifest: DocProtectManifest;
+  let manifest: RicoManifest;
 
   try {
     manifest = JSON.parse(manifestContent);
@@ -128,9 +128,9 @@ export async function parseBundle(bundleBlob: Blob): Promise<{
 
 /**
  * Validate bundle structure
- * 
+ *
  * Checks that bundle contains required files and valid manifest
- * 
+ *
  * @param bundleBlob - Bundle to validate
  * @returns Validation result
  */
@@ -184,9 +184,9 @@ export async function validateBundle(bundleBlob: Blob): Promise<{
 
 /**
  * Extract bundle metadata without decrypting
- * 
+ *
  * Useful for displaying file info before decryption
- * 
+ *
  * @param bundleBlob - Bundle file
  * @returns Metadata (filename, size, recipient count, policy)
  */
@@ -206,7 +206,7 @@ export async function getBundleMetadata(bundleBlob: Blob): Promise<{
     throw new Error('Bundle missing manifest.json');
   }
 
-  const manifest = JSON.parse(await manifestFile.async('string')) as DocProtectManifest;
+  const manifest = JSON.parse(await manifestFile.async('string')) as RicoManifest;
 
   return {
     fileName: manifest.fileInfo.name,
@@ -221,20 +221,20 @@ export async function getBundleMetadata(bundleBlob: Blob): Promise<{
 
 /**
  * Update bundle manifest (for access control changes)
- * 
+ *
  * NOTE: Only updates manifest, does not re-encrypt payload.
  * For true revocation, must re-encrypt entire bundle.
- * 
+ *
  * @param bundle - Existing bundle
  * @param updatedManifest - New manifest
  * @returns Updated bundle
  */
 export async function updateBundleManifest(
-  bundle: DocProtectBundle,
-  updatedManifest: DocProtectManifest
-): Promise<DocProtectBundle> {
+  bundle: RicoBundle,
+  updatedManifest: RicoManifest
+): Promise<RicoBundle> {
   const { encryptedPayload } = await parseBundle(bundle.blob);
-  const manifest: DocProtectManifest = {
+  const manifest: RicoManifest = {
     ...updatedManifest,
     manifestVersion: (updatedManifest.manifestVersion ?? bundle.manifest.manifestVersion) + 1,
     createdAt: updatedManifest.createdAt ?? bundle.manifest.createdAt
@@ -251,7 +251,7 @@ export async function updateBundleManifest(
  * Compress manifest JSON for smaller bundle size
  * @internal
  */
-function compressManifest(manifest: DocProtectManifest): string {
+function compressManifest(manifest: RicoManifest): string {
   return JSON.stringify(manifest, null, 2);
 }
 
@@ -259,12 +259,12 @@ function compressManifest(manifest: DocProtectManifest): string {
  * Validate manifest schema
  * @internal
  */
-function validateManifestSchema(manifest: unknown): manifest is DocProtectManifest {
+function validateManifestSchema(manifest: unknown): manifest is RicoManifest {
   if (!manifest || typeof manifest !== 'object') {
     return false;
   }
 
-  const candidate = manifest as Partial<DocProtectManifest>;
+  const candidate = manifest as Partial<RicoManifest>;
   return (
     typeof candidate.version === 'string' &&
     !!candidate.fileInfo &&

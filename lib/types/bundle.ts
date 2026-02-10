@@ -1,27 +1,27 @@
 /**
- * DocProtect Bundle Type Definitions
- * 
+ * Rico Bundle Type Definitions
+ *
  * Based on OpenTDF manifest structure with age encryption
  * References:
  * - OpenTDF: https://opentdf.io/spec/schema/opentdf/manifest
  * - age spec: https://age-encryption.org/v1
  */
 
-export interface DocProtectBundle {
+export interface RicoBundle {
     /** Unique bundle identifier (UUID v4) */
     bundleId: string;
-    
-    /** Blob containing the .dpf file (zip) */
+
+    /** Blob containing the .rico file (zip) */
     blob: Blob;
-    
+
     /** Parsed manifest from bundle */
-    manifest: DocProtectManifest;
-    
+    manifest: RicoManifest;
+
     /** Creation timestamp */
     createdAt: Date;
   }
-  
-  export interface DocProtectManifest {
+
+  export interface RicoManifest {
     /** Manifest version (semver) */
     version: string;
     
@@ -60,7 +60,7 @@ export interface DocProtectBundle {
   
   export interface EncryptionInfo {
     /** Encryption algorithm identifier */
-    algorithm: 'age' | 'age-fallback';
+    algorithm: 'age' | 'age-pq' | 'age-x25519' | 'age-fallback';
     
     /** age format version */
     format: 'age-encryption.org/v1';
@@ -74,7 +74,7 @@ export interface DocProtectBundle {
   
   export interface RecipientInfo {
     /** Recipient type */
-    type: 'webauthn-passkey' | 'webauthn-securitykey' | 'x25519' | 'fallback-pbkdf2';
+    type: 'webauthn-passkey' | 'webauthn-securitykey' | 'x25519' | 'pq-hybrid' | 'fallback-pbkdf2';
     
     /** age identity string (for WebAuthn PRF or X25519) */
     identity?: string;
@@ -119,7 +119,7 @@ export interface DocProtectBundle {
     /**
      * Data attributes required to access (OpenTDF ABAC)
      * MVP: Empty array
-     * Future: ["https://docprotect.app/attr/clearance/value/secret"]
+     * Future: ["https://rico.app/attr/clearance/value/secret"]
      */
     dataAttributes: DataAttribute[];
     
@@ -147,7 +147,7 @@ export interface DocProtectBundle {
   }
   
   export interface AttributeRule {
-    /** Attribute namespace (e.g., "https://docprotect.app") */
+    /** Attribute namespace (e.g., "https://rico.app") */
     attributeNamespace: string;
     
     /** Canonical attribute name */

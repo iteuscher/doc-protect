@@ -1,35 +1,36 @@
 /**
- * DocProtect Manifest Generation
- * 
+ * Rico Manifest Generation
+ *
  * Creates TDF-inspired manifests with embedded ABAC policies.
- * 
+ *
  * References:
  * - OpenTDF manifest: https://opentdf.io/spec/schema/opentdf/manifest
  * - TDF spec: https://github.com/virtru/tdf-spec
  */
 
 import type {
-  DocProtectManifest,
+  RicoManifest,
   PolicyObject,
   RecipientInfo
 } from '@/lib/types/bundle';
 import type { WebAuthnCredential, FallbackCredential } from '@/lib/types/credential';
+import type { KeypairCredential } from '@/lib/types/encryption-credential';
 
 export interface CreateManifestOptions {
   fileName: string;
   fileType: string;
   originalSize: number;
   encryptedSize: number;
-  ownerCredential: WebAuthnCredential | FallbackCredential;
+  ownerCredential: WebAuthnCredential | FallbackCredential | KeypairCredential;
   recipients: RecipientInfo[];
   policy?: PolicyObject;
   warnings?: string[];
 }
 
 /**
- * Create DocProtect manifest
+ * Create Rico manifest
  */
-export function createManifest(options: CreateManifestOptions): DocProtectManifest {
+export function createManifest(options: CreateManifestOptions): RicoManifest {
   const {
     fileName,
     fileType,
@@ -76,7 +77,13 @@ export function createManifest(options: CreateManifestOptions): DocProtectManife
       originalSize
     },
     encryptionInfo: {
-      algorithm: ownerCredential.type === 'fallback-pbkdf2' ? 'age-fallback' : 'age',
+      algorithm: ownerCredential.type === 'fallback-pbkdf2'
+        ? 'age-fallback'
+        : ownerCredential.type === 'pq-keypair'
+        ? 'age-pq'
+        : ownerCredential.type === 'x25519-keypair'
+        ? 'age-x25519'
+        : 'age',
       format: 'age-encryption.org/v1',
       recipients: manifestRecipients
     },
@@ -227,7 +234,7 @@ export function updatePolicy(
   }
 
 function credentialToRecipient(
-  credential: WebAuthnCredential | FallbackCredential,
+  credential: WebAuthnCredential | FallbackCredential | KeypairCredential,
   role: 'owner' | 'recipient'
 ): RecipientInfo {
   if (credential.type === 'fallback-pbkdf2') {
@@ -240,12 +247,34 @@ function credentialToRecipient(
     };
   }
 
+  if (credential.type === 'pq-keypair') {
+    return {
+      type: 'pq-hybrid',
+      publicKey: credential.recipient,
+      identity: credential.identity,
+      role,
+      label: credential.label,
+    };
+  }
+
+  if (credential.type === 'x25519-keypair') {
+    return {
+      type: 'x25519',
+      publicKey: credential.recipient,
+      identity: credential.identity,
+      role,
+      label: credential.label,
+    };
+  }
+
+  // At this point, credential must be WebAuthnCredential
+  const webauthnCred = credential as WebAuthnCredential;
   return {
-    type: credential.type === 'security-key' ? 'webauthn-securitykey' : 'webauthn-passkey',
-    identity: credential.identity,
-    credentialId: credential.credentialId,
+    type: webauthnCred.type === 'security-key' ? 'webauthn-securitykey' : 'webauthn-passkey',
+    identity: webauthnCred.identity,
+    credentialId: webauthnCred.credentialId,
     role,
-    label: credential.keyName
+    label: webauthnCred.keyName
   };
 }
 
@@ -272,9 +301,9 @@ function safeUUID(): string {
 }
 
 function resolveCredentialIdentity(
-  credential: WebAuthnCredential | FallbackCredential
+  credential: WebAuthnCredential | FallbackCredential | KeypairCredential
 ): string {
-  return credential.type === 'fallback-pbkdf2'
-    ? credential.credentialId
-    : credential.identity;
+  if (credential.type === 'fallback-pbkdf2') return credential.credentialId;
+  if (credential.type === 'pq-keypair' || credential.type === 'x25519-keypair') return credential.recipient;
+  return credential.identity;
 }

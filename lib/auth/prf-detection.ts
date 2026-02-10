@@ -13,7 +13,7 @@
 
 import type { PRFSupport } from '@/lib/types/credential';
 
-const PRF_SUPPORT_CACHE_KEY = 'docprotect:prf-support';
+const PRF_SUPPORT_CACHE_KEY = 'rico:prf-support';
 const CACHE_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 interface CachedSupport {
@@ -29,6 +29,10 @@ const FALLBACK_RESULT: PRFSupport = {
 
 /**
  * Detect PRF support with caching
+ *
+ * Uses platform heuristics on known platforms to avoid prompting the user
+ * with a test credential. Only falls back to creating a test credential
+ * on unknown platforms.
  */
 export async function detectPRFSupport(forceRetest = false): Promise<PRFSupport> {
   if (!isBrowserEnvironment()) {
@@ -48,6 +52,28 @@ export async function detectPRFSupport(forceRetest = false): Promise<PRFSupport>
 
   const platformInfo = getPlatformPRFInfo();
 
+  // On known platforms, trust the heuristic without creating a test credential.
+  // This avoids an unnecessary browser prompt.
+  if (platformInfo.os !== 'unknown') {
+    const result: PRFSupport = platformInfo.likelySupported
+      ? {
+          supported: true,
+          fallbackRequired: false,
+          platform: platformInfo.platform,
+          detectedAt: new Date().toISOString()
+        }
+      : {
+          ...FALLBACK_RESULT,
+          platform: platformInfo.platform,
+          detectedAt: new Date().toISOString(),
+          fallbackMethod: 'pbkdf2-webauthn'
+        };
+
+    cachePRFSupport(result);
+    return result;
+  }
+
+  // Unknown platform — fall back to creating a test credential
   try {
     const testResult = await createTestPRFCredential();
     const result: PRFSupport = testResult.success && testResult.prfEnabled
@@ -88,6 +114,50 @@ export function getCachedPRFSupport(): PRFSupport | null {
 
   const cached = readCachedSupport();
   return cached?.result ?? null;
+}
+
+/**
+ * Lazy PRF support detection (never prompts the user)
+ *
+ * Returns cached result if available, otherwise uses platform heuristics.
+ * Never creates a test credential, so never triggers a browser prompt.
+ * Returns null only if on an unknown platform with no cache.
+ */
+export function detectPRFSupportLazy(): PRFSupport | null {
+  if (!isBrowserEnvironment()) {
+    return {
+      ...FALLBACK_RESULT,
+      platform: 'server',
+      detectedAt: new Date().toISOString()
+    };
+  }
+
+  const cached = readCachedSupport();
+  if (cached) {
+    return cached.result;
+  }
+
+  const platformInfo = getPlatformPRFInfo();
+  if (platformInfo.os === 'unknown') {
+    return null;
+  }
+
+  const result: PRFSupport = platformInfo.likelySupported
+    ? {
+        supported: true,
+        fallbackRequired: false,
+        platform: platformInfo.platform,
+        detectedAt: new Date().toISOString()
+      }
+    : {
+        ...FALLBACK_RESULT,
+        platform: platformInfo.platform,
+        detectedAt: new Date().toISOString(),
+        fallbackMethod: 'pbkdf2-webauthn'
+      };
+
+  cachePRFSupport(result);
+  return result;
 }
 
 /**
@@ -222,7 +292,7 @@ async function createTestPRFCredential(
         challenge: crypto.getRandomValues(new Uint8Array(32)),
         rp: {
           id: window.location.hostname,
-          name: 'DocProtect PRF Test'
+          name: 'Rico PRF Test'
         },
         user: {
           id: crypto.getRandomValues(new Uint8Array(16)),
@@ -266,7 +336,7 @@ async function createTestPRFCredential(
   }
 }
 
-function cachePRFSupport(result: PRFSupport): void {
+export function cachePRFSupport(result: PRFSupport): void {
   if (!isBrowserEnvironment() || typeof localStorage === 'undefined') {
     return;
   }

@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { encryptFile, decryptFile } from '@/lib/crypto/encryption';
-import type { RecipientInfo, DocProtectManifest } from '@/lib/types/bundle';
+import type { RecipientInfo, RicoManifest } from '@/lib/types/bundle';
 import type { WebAuthnCredential, FallbackCredential } from '@/lib/types/credential';
+import type { KeypairCredential } from '@/lib/types/encryption-credential';
 
 const { createBundleMock, parseBundleMock, fallbackMocks } = vi.hoisted(() => {
   return {
@@ -15,7 +16,7 @@ const { createBundleMock, parseBundleMock, fallbackMocks } = vi.hoisted(() => {
     fallbackMocks: {
       encryptWithFallback: vi.fn(),
       decryptWithFallback: vi.fn(),
-      isFallbackCredential: (credential: WebAuthnCredential | FallbackCredential) =>
+      isFallbackCredential: (credential: WebAuthnCredential | FallbackCredential | KeypairCredential) =>
         credential.type === 'fallback-pbkdf2'
     }
   };
@@ -60,7 +61,7 @@ const fallbackCredential: FallbackCredential = {
   createdAt: new Date().toISOString()
 };
 
-const fallbackManifest: DocProtectManifest = {
+const fallbackManifest: RicoManifest = {
   version: '1.0.0',
   manifestVersion: 1,
   createdAt: new Date().toISOString(),
@@ -144,6 +145,118 @@ describe('Encryption engine', () => {
 
     expect(result.fileName).toBe('hello.txt');
     expect(fallbackMocks.decryptWithFallback).toHaveBeenCalled();
+  });
+
+  it('encrypts file with PQ keypair credential', async () => {
+    const pqCredential: KeypairCredential = {
+      type: 'pq-keypair',
+      keypairId: 'pq-1',
+      identity: 'AGE-SECRET-KEY-PQ-1TEST',
+      recipient: 'age1pq1test...',
+      label: 'Test PQ Key'
+    };
+
+    const file = {
+      name: 'secret.txt',
+      type: 'text/plain',
+      size: 5,
+      arrayBuffer: async () => new TextEncoder().encode('hello').buffer
+    } as File;
+
+    await encryptFile({
+      file,
+      ownerCredential: pqCredential
+    });
+
+    expect(createBundleMock).toHaveBeenCalled();
+    const manifest = createBundleMock.mock.calls[0][0];
+    expect(manifest.encryptionInfo.algorithm).toBe('age-pq');
+    expect(manifest.encryptionInfo.recipients[0].type).toBe('pq-hybrid');
+    expect(manifest.encryptionInfo.recipients[0].publicKey).toBe('age1pq1test...');
+  });
+
+  it('encrypts file with x25519 keypair credential', async () => {
+    const x25519Credential: KeypairCredential = {
+      type: 'x25519-keypair',
+      keypairId: 'x-1',
+      identity: 'AGE-SECRET-KEY-1TEST',
+      recipient: 'age1test...',
+      label: 'Test x25519 Key'
+    };
+
+    const file = {
+      name: 'secret.txt',
+      type: 'text/plain',
+      size: 5,
+      arrayBuffer: async () => new TextEncoder().encode('hello').buffer
+    } as File;
+
+    await encryptFile({
+      file,
+      ownerCredential: x25519Credential
+    });
+
+    expect(createBundleMock).toHaveBeenCalled();
+    const manifest = createBundleMock.mock.calls[0][0];
+    expect(manifest.encryptionInfo.algorithm).toBe('age-x25519');
+    expect(manifest.encryptionInfo.recipients[0].type).toBe('x25519');
+    expect(manifest.encryptionInfo.recipients[0].publicKey).toBe('age1test...');
+  });
+
+  it('decrypts PQ-encrypted bundle with keypair credential', async () => {
+    const pqManifest: RicoManifest = {
+      version: '1.0.0',
+      manifestVersion: 1,
+      createdAt: new Date().toISOString(),
+      fileInfo: {
+        name: 'secret.txt',
+        type: 'text/plain',
+        encryptedSize: 5,
+        originalSize: 5
+      },
+      encryptionInfo: {
+        algorithm: 'age-pq',
+        format: 'age-encryption.org/v1',
+        recipients: [
+          { type: 'pq-hybrid', publicKey: 'age1pq1test...', identity: 'AGE-SECRET-KEY-PQ-1TEST', role: 'owner', label: 'Test PQ Key' }
+        ]
+      },
+      policy: {
+        uuid: '12345678-1234-5678-1234-567812345678',
+        version: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        body: { dataAttributes: [], dissem: ['age1pq1test...'] },
+        abacRules: { enabled: false, rules: [] }
+      }
+    };
+
+    parseBundleMock.mockResolvedValue({
+      manifest: pqManifest,
+      encryptedPayload: new Uint8Array([1, 2, 3]),
+      bundleId: 'bundle-pq-1'
+    });
+
+    const pqCredential: KeypairCredential = {
+      type: 'pq-keypair',
+      keypairId: 'pq-1',
+      identity: 'AGE-SECRET-KEY-PQ-1TEST',
+      recipient: 'age1pq1test...',
+      label: 'Test PQ Key'
+    };
+
+    const result = await decryptFile({
+      bundle: {
+        bundleId: 'bundle-pq-1',
+        blob: new Blob(),
+        manifest: pqManifest,
+        createdAt: new Date()
+      },
+      credential: pqCredential
+    });
+
+    expect(result.fileName).toBe('secret.txt');
+    expect(result.mimeType).toBe('text/plain');
   });
 });
 

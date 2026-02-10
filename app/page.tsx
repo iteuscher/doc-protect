@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * DocProtect Guided Workflow UI
+ * Rico Guided Workflow UI
  *
  * Step-by-step workflow for encrypting and decrypting files:
  * 1. File Upload
@@ -15,15 +15,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ChangeEvent, DragEvent } from 'react';
 import type { PRFSupport, WebAuthnCredential, FallbackCredential } from '@/lib/types/credential';
-import type { DocProtectBundle } from '@/lib/types/bundle';
+import type { RicoBundle } from '@/lib/types/bundle';
+import type { EncryptionAlgorithm, EncryptionSettings, StoredKeypair } from '@/lib/types/settings';
+import { DEFAULT_SETTINGS } from '@/lib/types/settings';
+import { keypairToCredential } from '@/lib/types/encryption-credential';
 import { getCachedPRFSupport, getPlatformPRFInfo } from '@/lib/auth/prf-detection';
 import {
   createCredential,
-  listUserCredentials
+  listUserCredentials,
+  selectExistingCredential
 } from '@/lib/auth/webauthn';
 import { encryptFile, decryptFile } from '@/lib/crypto/encryption';
 import { parseBundle } from '@/lib/crypto/bundle';
 import { resetAllData } from '@/lib/storage/reset';
+import { getSettings, saveSettings, listKeypairs } from '@/lib/storage/indexeddb';
+import { generatePQKeypair, generateX25519Keypair } from '@/lib/crypto/keygen';
 
 // Workflow steps
 type WorkflowStep =
@@ -34,7 +40,7 @@ type WorkflowStep =
   | 'edit-bundle'           // Section 5 (post-encryption)
   | 'complete';             // Done
 
-type FileType = 'standard' | 'dpf' | null;
+type FileType = 'standard' | 'rico' | null;
 type CredentialMode = 'create' | 'select-stored' | 'select-external' | null;
 type SharingMode = 'download' | 'cloud' | 'link' | null;
 
@@ -47,7 +53,7 @@ interface WorkflowState {
   customCredentialName: string;
   recipients: string[];
   sharingMode: SharingMode;
-  encryptedBundle: DocProtectBundle | null;
+  encryptedBundle: RicoBundle | null;
   decryptedData: { fileName: string; url: string } | null;
 }
 
@@ -75,6 +81,12 @@ export default function Home() {
   const [statusMessage, setStatusMessage] = useState<string>('Ready to upload a file');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showDetailedInfo, setShowDetailedInfo] = useState(false);
+  const [showExistingOptions, setShowExistingOptions] = useState(false);
+
+  // Settings state
+  const [showSettings, setShowSettings] = useState(false);
+  const [encryptionSettings, setEncryptionSettings] = useState<EncryptionSettings>(DEFAULT_SETTINGS);
+  const [keypairs, setKeypairs] = useState<StoredKeypair[]>([]);
 
   // Bootstrap
   useEffect(() => {
@@ -112,8 +124,18 @@ export default function Home() {
 
         const stored = await listUserCredentials();
         setCredentials(stored);
+
+        // Load encryption settings
+        const savedSettings = await getSettings();
+        if (savedSettings) {
+          setEncryptionSettings(savedSettings);
+        }
+
+        // Load keypairs
+        const storedKeypairs = await listKeypairs();
+        setKeypairs(storedKeypairs);
       } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Failed to initialize DocProtect';
+        const message = error instanceof Error ? error.message : 'Failed to initialize Rico';
         setErrorMessage(message);
       }
     }
@@ -132,20 +154,20 @@ export default function Home() {
 
   // ===== SECTION 1: FILE UPLOAD =====
   const handleFileUpload = useCallback((file: File) => {
-    const isDPF = file.name.toLowerCase().endsWith('.dpf') || file.type === 'application/zip';
+    const isRico = file.name.toLowerCase().endsWith('.rico') || file.type === 'application/zip';
 
     setWorkflow(prev => ({
       ...prev,
       step: 'verify-identity',
       uploadedFile: file,
-      fileType: isDPF ? 'dpf' : 'standard',
-      customCredentialName: file.name.replace(/\.(dpf|pdf|docx?|txt|png|jpe?g)$/i, '')
+      fileType: isRico ? 'rico' : 'standard',
+      customCredentialName: file.name.replace(/\.(rico|pdf|docx?|txt|png|jpe?g)$/i, '')
     }));
 
     setStatusMessage(
-      isDPF
-        ? 'DPF file detected. Ready to decrypt.'
-        : 'Standard file detected. Ready to encrypt.'
+      isRico
+        ? `Ready to decrypt: ${file.name}`
+        : `Ready to encrypt: ${file.name}`
     );
     setErrorMessage(null);
   }, []);
@@ -163,31 +185,47 @@ export default function Home() {
   };
 
   // ===== SECTION 2: VERIFY IDENTITY =====
-  const handleCreateCredential = async () => {
+  const handleCreateAndEncrypt = async () => {
     if (!workflow.customCredentialName.trim()) {
       setErrorMessage('Please enter a credential name');
+      return;
+    }
+    if (!workflow.uploadedFile) {
+      setErrorMessage('No file uploaded');
       return;
     }
 
     setIsProcessing(true);
     setErrorMessage(null);
+    setStatusMessage('Creating credential and encrypting...');
+
     try {
       const credential = await createCredential({
-        keyName: workflow.customCredentialName.trim()
+        keyName: workflow.customCredentialName.trim(),
+        prfSupportOverride: prfSupport ?? undefined
       });
 
       const updated = await listUserCredentials();
       setCredentials(updated);
 
+      setStatusMessage('Credential created. Encrypting file...');
+
+      const bundle = await encryptFile({
+        file: workflow.uploadedFile,
+        ownerCredential: credential
+      });
+
       setWorkflow(prev => ({
         ...prev,
+        step: 'recipients',
         selectedCredential: credential,
-        credentialMode: 'create'
+        credentialMode: 'create',
+        encryptedBundle: bundle
       }));
 
-      setStatusMessage(`Credential "${workflow.customCredentialName}" created successfully.`);
+      setStatusMessage('File encrypted. Add recipients or proceed to sharing.');
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to create credential';
+      const message = error instanceof Error ? error.message : 'Failed to create credential or encrypt';
       setErrorMessage(message);
     } finally {
       setIsProcessing(false);
@@ -218,45 +256,68 @@ export default function Home() {
       return;
     }
 
-    if (!workflow.selectedCredential && workflow.credentialMode !== 'select-external') {
-      setErrorMessage('Please create or select a credential first');
-      return;
-    }
-
     setIsProcessing(true);
     setErrorMessage(null);
     setStatusMessage('Encrypting file...');
 
     try {
-      let credential = workflow.selectedCredential;
+      // PQ or x25519 keypair mode
+      if (encryptionSettings.algorithm === 'age-pq' || encryptionSettings.algorithm === 'age-x25519') {
+        const algType = encryptionSettings.algorithm === 'age-pq' ? 'age-pq' : 'age-x25519';
+        let keypair = keypairs.find(kp => kp.algorithm === algType);
 
-      // If using external credential mode, create credential on-the-fly
-      if (workflow.credentialMode === 'select-external' && !credential) {
-        const credName = workflow.customCredentialName.trim() || workflow.uploadedFile.name;
-        credential = await createCredential({
-          keyName: credName
+        if (!keypair) {
+          const label = workflow.customCredentialName.trim() || `Rico ${algType === 'age-pq' ? 'PQ' : 'x25519'} Key`;
+          setStatusMessage(`Generating ${algType === 'age-pq' ? 'post-quantum' : 'x25519'} keypair...`);
+          keypair = algType === 'age-pq'
+            ? await generatePQKeypair(label)
+            : await generateX25519Keypair(label);
+          setKeypairs(await listKeypairs());
+        }
+
+        const credential = keypairToCredential(keypair);
+        const bundle = await encryptFile({
+          file: workflow.uploadedFile,
+          ownerCredential: credential,
         });
-        // Optionally update the credentials list
-        const updated = await listUserCredentials();
-        setCredentials(updated);
+
+        setWorkflow(prev => ({
+          ...prev,
+          step: 'recipients',
+          encryptedBundle: bundle,
+        }));
+
+        setStatusMessage('File encrypted. Add recipients or proceed to sharing.');
+      } else {
+        // WebAuthn PRF mode
+        let credential = workflow.selectedCredential;
+
+        // If using external credential mode, select existing passkey from password manager
+        if (workflow.credentialMode === 'select-external' && !credential) {
+          setStatusMessage('Please select a passkey from your password manager...');
+          credential = await selectExistingCredential();
+          setStatusMessage('Passkey selected. Encrypting file...');
+        }
+
+        if (!credential) {
+          setErrorMessage('Please create or select a credential first');
+          setIsProcessing(false);
+          return;
+        }
+
+        const bundle = await encryptFile({
+          file: workflow.uploadedFile,
+          ownerCredential: credential
+        });
+
+        setWorkflow(prev => ({
+          ...prev,
+          step: 'recipients',
+          encryptedBundle: bundle
+        }));
+
+        setStatusMessage('File encrypted. Add recipients or proceed to sharing.');
       }
-
-      if (!credential) {
-        throw new Error('Failed to obtain credential for encryption');
-      }
-
-      const bundle = await encryptFile({
-        file: workflow.uploadedFile,
-        ownerCredential: credential
-      });
-
-      setWorkflow(prev => ({
-        ...prev,
-        step: 'recipients',
-        encryptedBundle: bundle
-      }));
-
-      setStatusMessage('File encrypted. Add recipients or proceed to sharing.');
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Encryption failed';
       setErrorMessage(message);
@@ -271,42 +332,76 @@ export default function Home() {
       return;
     }
 
-    if (!workflow.selectedCredential && workflow.credentialMode !== 'select-external') {
-      setErrorMessage('Please select a credential or choose to use password manager');
-      return;
-    }
-
     setIsProcessing(true);
     setErrorMessage(null);
     setStatusMessage('Parsing bundle and decrypting...');
 
     try {
       const parsed = await parseBundle(workflow.uploadedFile);
-      const bundle: DocProtectBundle = {
+      const bundle: RicoBundle = {
         bundleId: parsed.bundleId || crypto.randomUUID(),
         blob: workflow.uploadedFile,
         manifest: parsed.manifest,
         createdAt: new Date()
       };
 
-      const decrypted = await decryptFile({
-        bundle,
-        credential: workflow.credentialMode === 'select-external' ? undefined : (workflow.selectedCredential || undefined)
-      });
+      const bundleAlgorithm = parsed.manifest.encryptionInfo.algorithm;
 
-      const blob = new Blob([decrypted.data as BlobPart], { type: decrypted.mimeType });
-      const downloadUrl = URL.createObjectURL(blob);
+      // For PQ or x25519 bundles, find the matching keypair
+      if (bundleAlgorithm === 'age-pq' || bundleAlgorithm === 'age-x25519') {
+        const matchingKeypair = keypairs.find(kp => {
+          return parsed.manifest.encryptionInfo.recipients.some(
+            r => r.publicKey === kp.recipient || r.identity === kp.identity
+          );
+        });
 
-      setWorkflow(prev => ({
-        ...prev,
-        step: 'complete',
-        decryptedData: {
-          fileName: decrypted.fileName,
-          url: downloadUrl
+        if (!matchingKeypair) {
+          throw new Error(
+            `This file was encrypted with a ${bundleAlgorithm === 'age-pq' ? 'post-quantum' : 'x25519'} keypair that is not stored in this browser.\n\n` +
+            `You need the original keypair to decrypt this file.`
+          );
         }
-      }));
 
-      setStatusMessage('File decrypted successfully!');
+        const credential = keypairToCredential(matchingKeypair);
+        const decrypted = await decryptFile({ bundle, credential });
+
+        const blob = new Blob([decrypted.data as BlobPart], { type: decrypted.mimeType });
+        const downloadUrl = URL.createObjectURL(blob);
+
+        setWorkflow(prev => ({
+          ...prev,
+          step: 'complete',
+          decryptedData: { fileName: decrypted.fileName, url: downloadUrl }
+        }));
+
+        setStatusMessage('File decrypted successfully!');
+      } else {
+        // WebAuthn PRF or fallback mode (existing behavior)
+        if (!workflow.selectedCredential && workflow.credentialMode !== 'select-external') {
+          setErrorMessage('Please select a credential or choose to use password manager');
+          setIsProcessing(false);
+          return;
+        }
+
+        const decrypted = await decryptFile({
+          bundle,
+          credential: workflow.credentialMode === 'select-external' ? undefined : (workflow.selectedCredential || undefined)
+        });
+
+        const blob = new Blob([decrypted.data as BlobPart], { type: decrypted.mimeType });
+        const downloadUrl = URL.createObjectURL(blob);
+
+        setWorkflow(prev => ({
+          ...prev,
+          step: 'complete',
+          decryptedData: {
+            fileName: decrypted.fileName,
+            url: downloadUrl
+          }
+        }));
+
+        setStatusMessage('File decrypted successfully!');
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Decryption failed';
       setErrorMessage(message);
@@ -398,8 +493,8 @@ export default function Home() {
 
   const handleSkipRecipients = () => {
     // Clear any recipients that were added and proceed to sharing
-    setWorkflow(prev => ({ 
-      ...prev, 
+    setWorkflow(prev => ({
+      ...prev,
       step: 'sharing',
       recipients: []
     }));
@@ -414,7 +509,7 @@ export default function Home() {
     const url = URL.createObjectURL(workflow.encryptedBundle.blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${workflow.uploadedFile?.name || 'file'}.dpf`;
+    a.download = `${workflow.uploadedFile?.name || 'file'}.rico`;
     a.click();
     URL.revokeObjectURL(url);
 
@@ -424,7 +519,7 @@ export default function Home() {
       sharingMode: 'download'
     }));
 
-    setStatusMessage('DPF file Created Successfully!');
+    setStatusMessage('Rico file created successfully!');
   };
 
   const handleLinkSharing = () => {
@@ -468,7 +563,7 @@ export default function Home() {
 
   // ===== RESET =====
   const handleReset = async () => {
-    if (!confirm('Reset all DocProtect data? This will delete all credentials and bundles. This cannot be undone.')) {
+    if (!confirm('Reset all Rico data? This will delete all credentials and bundles. This cannot be undone.')) {
       return;
     }
 
@@ -484,6 +579,26 @@ export default function Home() {
     }
   };
 
+  // ===== SETTINGS =====
+  const handleAlgorithmChange = async (algorithm: EncryptionAlgorithm) => {
+    const updated: EncryptionSettings = {
+      ...encryptionSettings,
+      algorithm,
+      updatedAt: new Date().toISOString(),
+    };
+    await saveSettings(updated);
+    setEncryptionSettings(updated);
+    setStatusMessage(`Encryption algorithm set to ${algorithmDisplayName(algorithm)}`);
+  };
+
+  function algorithmDisplayName(alg: EncryptionAlgorithm): string {
+    switch (alg) {
+      case 'age-pq': return 'Post-Quantum Hybrid';
+      case 'age-x25519': return 'Classic (x25519)';
+      case 'age-webauthn': return 'WebAuthn Passkey (PRF)';
+    }
+  }
+
   // ===== RENDER =====
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -492,19 +607,37 @@ export default function Home() {
         <header className="space-y-2">
           <div className="flex items-center justify-between">
             <div>
-              {/* <p className="text-sm uppercase tracking-wide text-slate-400">DocProtect</p> */}
+              {/* <p className="text-sm uppercase tracking-wide text-slate-400">Rico</p> */}
               <h1 className="text-3xl font-semibold text-white">
                 Passwordless Document Encryption
               </h1>
             </div>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="rounded-lg bg-red-500/20 border border-red-500/40 px-3 py-1.5 text-xs font-semibold text-red-300 transition hover:bg-red-500/30"
-              title="Reset all stored data"
-            >
-              Reset All
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSettings(!showSettings)}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                  showSettings
+                    ? 'bg-slate-700 border-white/20 text-white'
+                    : 'bg-slate-700/50 border-white/10 text-slate-300 hover:bg-slate-700'
+                }`}
+                title="Encryption settings"
+              >
+                <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Settings
+              </button>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="rounded-lg bg-red-500/20 border border-red-500/40 px-3 py-1.5 text-xs font-semibold text-red-300 transition hover:bg-red-500/30"
+                title="Reset all stored data"
+              >
+                Reset All
+              </button>
+            </div>
           </div>
           {prfSupport && !prfSupport.supported && (
             <p className="text-sm text-amber-400 flex items-center gap-2">
@@ -515,6 +648,111 @@ export default function Home() {
             </p>
           )}
         </header>
+
+        {/* Settings Panel */}
+        {showSettings && (
+          <section className="rounded-xl border border-white/10 bg-slate-900/40 p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-white">Encryption Settings</h2>
+            <p className="text-xs text-slate-400">
+              Choose the encryption algorithm for new files. Existing bundles can always be decrypted regardless of this setting.
+            </p>
+
+            <div className="space-y-2">
+              {/* WebAuthn Passkey PRF (Default) */}
+              <label className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition ${
+                encryptionSettings.algorithm === 'age-webauthn'
+                  ? 'border-emerald-500/50 bg-emerald-500/5'
+                  : 'border-white/10 bg-white/5 hover:bg-white/10'
+              }`}>
+                <input
+                  type="radio"
+                  name="algorithm"
+                  value="age-webauthn"
+                  checked={encryptionSettings.algorithm === 'age-webauthn'}
+                  onChange={() => handleAlgorithmChange('age-webauthn')}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    WebAuthn Passkey (PRF) <span className="text-xs text-emerald-400">(Default)</span>
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Uses hardware-bound passkeys. Keys never leave your authenticator.
+                  </p>
+                  {prfSupport && !prfSupport.supported && (
+                    <p className="text-xs text-amber-400 mt-1">
+                      Not available on this platform. Fallback mode will be used.
+                    </p>
+                  )}
+                </div>
+              </label>
+
+              {/* Post-Quantum Hybrid */}
+              <label className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition ${
+                encryptionSettings.algorithm === 'age-pq'
+                  ? 'border-blue-500/50 bg-blue-500/5'
+                  : 'border-white/10 bg-white/5 hover:bg-white/10'
+              }`}>
+                <input
+                  type="radio"
+                  name="algorithm"
+                  value="age-pq"
+                  checked={encryptionSettings.algorithm === 'age-pq'}
+                  onChange={() => handleAlgorithmChange('age-pq')}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="text-sm font-medium text-white">Post-Quantum Hybrid</p>
+                  <p className="text-xs text-slate-400">
+                    Protects against both classical and quantum computer attacks. Uses X25519 + ML-KEM-768 hybrid encryption.
+                  </p>
+                </div>
+              </label>
+
+              {/* Classic x25519 */}
+              <label className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition ${
+                encryptionSettings.algorithm === 'age-x25519'
+                  ? 'border-slate-400/50 bg-slate-500/5'
+                  : 'border-white/10 bg-white/5 hover:bg-white/10'
+              }`}>
+                <input
+                  type="radio"
+                  name="algorithm"
+                  value="age-x25519"
+                  checked={encryptionSettings.algorithm === 'age-x25519'}
+                  onChange={() => handleAlgorithmChange('age-x25519')}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="text-sm font-medium text-white">Classic (x25519)</p>
+                  <p className="text-xs text-slate-400">
+                    Standard age encryption. Smaller keys and wider compatibility.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            {/* Show active keypair info for PQ/x25519 */}
+            {(encryptionSettings.algorithm === 'age-pq' || encryptionSettings.algorithm === 'age-x25519') && (
+              <div className="rounded-lg bg-slate-800/50 border border-white/5 p-3">
+                <p className="text-xs font-medium text-slate-400 mb-1">
+                  {encryptionSettings.algorithm === 'age-pq' ? 'Post-Quantum' : 'x25519'} Keypair
+                </p>
+                {keypairs.filter(kp => kp.algorithm === encryptionSettings.algorithm).length > 0 ? (
+                  keypairs.filter(kp => kp.algorithm === encryptionSettings.algorithm).map(kp => (
+                    <p key={kp.id} className="text-xs text-slate-300">
+                      {kp.label} <span className="text-slate-500">({kp.recipient.substring(0, 20)}...)</span>
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    A keypair will be generated automatically when you encrypt your first file.
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Progress Indicator - Sticky */}
         <div className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur-sm py-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 border-b border-white/5">
@@ -539,6 +777,11 @@ export default function Home() {
         <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
           <p className="text-sm font-medium text-slate-200">Status</p>
           <p className="text-sm text-slate-300 mt-1">{statusMessage}</p>
+          {workflow.uploadedFile && workflow.step !== 'recipients' && workflow.step !== 'sharing' && workflow.step !== 'complete' && (
+            <p className="text-xs text-slate-400 mt-2">
+              {workflow.fileType === 'rico' ? '🔒' : '📄'} {workflow.uploadedFile.name}
+            </p>
+          )}
           {errorMessage && (() => {
             // Check if error message contains "See:" or "See " followed by a URL
             const seeUrlMatch = errorMessage.match(/^(.+?)\s+See:?\s+(https?:\/\/[^\s]+)/);
@@ -547,7 +790,7 @@ export default function Home() {
               // Remove trailing periods and whitespace, then add a single period
               const cleanedMessage = mainMessage.trim().replace(/\.+$/, '');
               return (
-                <div className="text-sm text-red-400 mt-1">
+                <div className="text-sm text-red-400 mt-2 border-t border-red-500/20 pt-2">
                   <span>{cleanedMessage}. </span>
                   <a
                     href={url}
@@ -563,7 +806,7 @@ export default function Home() {
             // Fallback: render any URLs as clickable links
             const parts = errorMessage.split(/(https?:\/\/[^\s]+)/);
             return (
-              <div className="text-sm text-red-400 mt-1">
+              <div className="text-sm text-red-400 mt-2 border-t border-red-500/20 pt-2">
                 {parts.map((part, index) => {
                   if (part.match(/^https?:\/\//)) {
                     return (
@@ -608,7 +851,7 @@ export default function Home() {
                 Choose File
               </div>
               <p className="text-xs text-slate-500">
-                .dpf files will be decrypted • Other files will be encrypted
+                .rico files will be decrypted • Other files will be encrypted
               </p>
               <input type="file" className="hidden" onChange={handleFileChange} />
             </label>
@@ -623,113 +866,159 @@ export default function Home() {
                 Verify Your Identity
               </h2>
 
-              {/* File Info */}
-              <div className="mb-6 rounded-lg bg-slate-800/50 p-4 border border-white/5">
-                <p className="text-sm font-medium text-slate-200 mb-1">Uploaded File:</p>
-                <p className="text-sm text-slate-300">{workflow.uploadedFile.name}</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  {workflow.fileType === 'dpf'
-                    ? '🔒 This is an encrypted DPF file (will be decrypted)'
-                    : '📄 This is a standard file (will be encrypted)'}
-                </p>
-              </div>
-
               {/* ENCRYPTION PATH */}
               {workflow.fileType === 'standard' && (
                 <div className="space-y-4">
-                  <p className="text-sm text-slate-300">
-                    Choose how to create the encryption key for this file:
-                  </p>
-
-                  {/* Create New Credential */}
-                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
-                    <p className="text-sm font-medium text-emerald-200 mb-3">
-                      Create New Credential (Recommended)
-                    </p>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={workflow.customCredentialName}
-                        onChange={(e) => setWorkflow(prev => ({ ...prev, customCredentialName: e.target.value }))}
-                        placeholder="Credential name"
-                        className="flex-1 rounded-lg bg-slate-800/50 border border-white/10 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500/50 focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleCreateCredential}
-                        disabled={isProcessing || !workflow.customCredentialName.trim()}
-                        className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50"
-                      >
-                        {isProcessing ? 'Creating...' : 'Create'}
-                      </button>
-                    </div>
-                    <p className="text-xs text-slate-400 mt-2">
-                      Creates a new passkey with this name (saved to your password manager)
-                    </p>
-                  </div>
-
-                  {/* Select Existing Credential */}
-                  {credentials.length > 0 && (
-                    <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
-                      <p className="text-sm font-medium text-blue-200 mb-3">
-                        Use Existing Credential
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {credentials.map((cred) => (
-                          <button
-                            key={cred.credentialId}
-                            onClick={() => handleSelectCredential(cred)}
-                            className={`rounded-lg border px-3 py-2 text-sm transition ${
-                              workflow.selectedCredential?.credentialId === cred.credentialId
-                                ? 'border-blue-400 bg-blue-500/20 text-blue-200'
-                                : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                            }`}
-                          >
-                            {cred.keyName}{' '}
-                            <span className="text-xs opacity-70">
-                              ({cred.type === 'fallback-pbkdf2' ? 'Fallback' : 'PRF'})
-                            </span>
-                          </button>
+                  {/* PQ / x25519 keypair mode */}
+                  {(encryptionSettings.algorithm === 'age-pq' || encryptionSettings.algorithm === 'age-x25519') && (
+                    <>
+                      <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+                        <p className="text-sm font-medium text-blue-200 mb-2">
+                          {encryptionSettings.algorithm === 'age-pq' ? 'Post-Quantum Hybrid' : 'Classic x25519'} Encryption
+                        </p>
+                        <p className="text-xs text-slate-400 mb-3">
+                          {encryptionSettings.algorithm === 'age-pq'
+                            ? 'Your file will be encrypted with quantum-resistant ML-KEM-768 + X25519 hybrid encryption.'
+                            : 'Your file will be encrypted with standard X25519 age encryption.'}
+                          {' '}A keypair {keypairs.find(kp => kp.algorithm === encryptionSettings.algorithm) ? 'is stored locally' : 'will be generated automatically'}.
+                        </p>
+                        {keypairs.filter(kp => kp.algorithm === encryptionSettings.algorithm).map(kp => (
+                          <div key={kp.id} className="rounded-lg bg-slate-800/50 border border-white/5 p-2 text-xs text-slate-300">
+                            <span className="text-slate-400">Keypair:</span> {kp.label}
+                            <span className="text-slate-500 ml-2">({kp.recipient.substring(0, 16)}...)</span>
+                          </div>
                         ))}
                       </div>
-                    </div>
+
+                      <button
+                        onClick={handleProceedToEncryption}
+                        disabled={isProcessing}
+                        className="w-full rounded-lg bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50"
+                      >
+                        {isProcessing ? 'Encrypting...' : 'Encrypt File →'}
+                      </button>
+                    </>
                   )}
 
-                  {/* External Credential - Encryption */}
-                  <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
-                    <p className="text-sm font-medium text-purple-200 mb-3">
-                      Use Password Manager
-                    </p>
-                    <button
-                      onClick={handleUseExternalCredential}
-                      className={`w-full rounded-lg border px-4 py-2 text-sm transition ${
-                        workflow.credentialMode === 'select-external'
-                          ? 'border-purple-400 bg-purple-500/20 text-purple-200'
-                          : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                      }`}
-                    >
-                      Select from Google, iCloud, Bitwarden, 1Password, etc.
-                    </button>
-                    <p className="text-xs text-slate-400 mt-2">
-                      Use an existing passkey from your password manager
-                    </p>
-                  </div>
+                  {/* WebAuthn PRF mode */}
+                  {encryptionSettings.algorithm === 'age-webauthn' && (
+                    <>
+                      {/* Create New Credential + Encrypt (combined) */}
+                      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
+                        <p className="text-sm font-medium text-emerald-200 mb-3">
+                          Create New Credential & Encrypt (Recommended)
+                        </p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={workflow.customCredentialName}
+                            onChange={(e) => setWorkflow(prev => ({ ...prev, customCredentialName: e.target.value }))}
+                            placeholder="Credential name"
+                            className="flex-1 rounded-lg bg-slate-800/50 border border-white/10 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-emerald-500/50 focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleCreateAndEncrypt}
+                            disabled={isProcessing || !workflow.customCredentialName.trim()}
+                            className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50"
+                          >
+                            {isProcessing ? 'Processing...' : 'Create & Encrypt'}
+                          </button>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-2">
+                          Creates a passkey and encrypts the file in one step
+                        </p>
+                      </div>
 
-                  {/* Proceed Button */}
-                  {(workflow.selectedCredential || workflow.credentialMode === 'select-external') && (
-                    <button
-                      onClick={handleProceedToEncryption}
-                      disabled={isProcessing}
-                      className="w-full rounded-lg bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50"
-                    >
-                      {isProcessing ? 'Encrypting...' : 'Encrypt File →'}
-                    </button>
+                      {/* Collapsible: Existing Credential / Password Manager */}
+                      {(credentials.length > 0 || true) && (
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => setShowExistingOptions(!showExistingOptions)}
+                            className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-300 transition"
+                          >
+                            <svg
+                              className={`w-4 h-4 transition-transform ${showExistingOptions ? 'rotate-180' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                            Or use an existing credential / password manager
+                          </button>
+
+                          {showExistingOptions && (
+                            <div className="mt-3 space-y-3">
+                              {/* Select Existing Credential */}
+                              {credentials.length > 0 && (
+                                <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+                                  <p className="text-sm font-medium text-blue-200 mb-3">
+                                    Use Existing Credential
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {credentials.map((cred) => (
+                                      <button
+                                        key={cred.credentialId}
+                                        onClick={() => handleSelectCredential(cred)}
+                                        className={`rounded-lg border px-3 py-2 text-sm transition ${
+                                          workflow.selectedCredential?.credentialId === cred.credentialId
+                                            ? 'border-blue-400 bg-blue-500/20 text-blue-200'
+                                            : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                                        }`}
+                                      >
+                                        {cred.keyName}{' '}
+                                        <span className="text-xs opacity-70">
+                                          ({cred.type === 'fallback-pbkdf2' ? 'Fallback' : 'PRF'})
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* External Credential - Encryption */}
+                              <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
+                                <p className="text-sm font-medium text-purple-200 mb-3">
+                                  Use Password Manager
+                                </p>
+                                <button
+                                  onClick={handleUseExternalCredential}
+                                  className={`w-full rounded-lg border px-4 py-2 text-sm transition ${
+                                    workflow.credentialMode === 'select-external'
+                                      ? 'border-purple-400 bg-purple-500/20 text-purple-200'
+                                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                                  }`}
+                                >
+                                  Select from Google, iCloud, Bitwarden, 1Password, etc.
+                                </button>
+                                <p className="text-xs text-slate-400 mt-2">
+                                  Use an existing Rico passkey from your password manager
+                                </p>
+                              </div>
+
+                              {/* Proceed Button (for existing/external paths) */}
+                              {(workflow.selectedCredential || workflow.credentialMode === 'select-external') && (
+                                <button
+                                  onClick={handleProceedToEncryption}
+                                  disabled={isProcessing}
+                                  className="w-full rounded-lg bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50"
+                                >
+                                  {isProcessing ? 'Encrypting...' : 'Encrypt File →'}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
 
               {/* DECRYPTION PATH */}
-              {workflow.fileType === 'dpf' && (
+              {workflow.fileType === 'rico' && (
                 <div className="space-y-4">
                   <p className="text-sm text-slate-300">
                     Select the credential used to encrypt this file:
@@ -777,9 +1066,6 @@ export default function Home() {
                     >
                       Select from Google, iCloud, Bitwarden, 1Password, etc.
                     </button>
-                    <p className="text-xs text-slate-400 mt-2">
-                      The credential doesn&apos;t need to be stored in this browser
-                    </p>
                   </div>
 
                   {/* Proceed Button */}
@@ -915,7 +1201,7 @@ export default function Home() {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-emerald-200">Download Bundle</p>
                       <p className="text-xs text-slate-400 mt-1">
-                        Download the .dpf file to share directly via email, messaging, etc.
+                        Download the .rico file to share directly via email, messaging, etc.
                       </p>
                     </div>
                   </div>
@@ -1063,7 +1349,7 @@ export default function Home() {
 
               <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-4 mb-6">
                 <p className="text-sm text-emerald-200">
-                  ✅ Your DPF file has been created and downloaded successfully.
+                  ✅ Your Rico file has been created and downloaded successfully.
                 </p>
               </div>
 
@@ -1118,6 +1404,27 @@ export default function Home() {
 
           {showDetailedInfo && (
             <div className="border-t border-white/10 p-4 space-y-4">
+              {/* Encryption Settings */}
+              <div>
+                <p className="text-xs font-medium text-slate-400 mb-2">Encryption Settings</p>
+                <div className="rounded-lg bg-slate-800/50 p-3 text-xs space-y-1">
+                  <p className="text-slate-300">
+                    <span className="text-slate-400">Algorithm:</span>{' '}
+                    {algorithmDisplayName(encryptionSettings.algorithm)}
+                  </p>
+                  {keypairs.length > 0 && (
+                    <div>
+                      <span className="text-slate-400">Stored Keypairs:</span>
+                      {keypairs.map(kp => (
+                        <p key={kp.id} className="text-slate-300 ml-2">
+                          {kp.label} ({kp.algorithm === 'age-pq' ? 'PQ Hybrid' : 'x25519'}) - {kp.recipient.substring(0, 20)}...
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* PRF Support */}
               <div>
                 <p className="text-xs font-medium text-slate-400 mb-2">PRF Support Status</p>

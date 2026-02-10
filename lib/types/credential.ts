@@ -1,7 +1,7 @@
 /**
  * WebAuthn Credential Type Definitions
  * 
- * Defines types for WebAuthn credentials used in DocProtect.
+ * Defines types for WebAuthn credentials used in Rico.
  * Supports both PRF-enabled and fallback credentials.
  * 
  * References:
@@ -63,10 +63,10 @@ export interface WebAuthnCredential {
   }
   
   export interface CreateCredentialOptions {
-    /** User identifier (email) - optional, defaults to 'user@docprotect.local' */
+    /** User identifier (email) - optional, defaults to 'user@rico.local' */
     userId?: string;
 
-    /** User display name - optional, defaults to 'DocProtect User' */
+    /** User display name - optional, defaults to 'Rico User' */
     userName?: string;
 
     /** Human-readable key name - optional, will default to generated name */
@@ -77,6 +77,9 @@ export interface WebAuthnCredential {
 
     /** Force fallback mode (for testing) */
     forceFallback?: boolean;
+
+    /** Pre-determined PRF support to avoid re-detection prompts */
+    prfSupportOverride?: PRFSupport;
   }
   
   export interface PRFSupport {

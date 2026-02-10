@@ -1,6 +1,6 @@
-# End-to-End Tests for DocProtect
+# End-to-End Tests for Rico
 
-This directory contains comprehensive end-to-end tests for the DocProtect application using Playwright.
+This directory contains comprehensive end-to-end tests for the Rico application using Playwright.
 
 ## Test Structure
 
@@ -18,7 +18,7 @@ Tests the complete encryption workflow:
 
 ### 2. **decryption-workflow.spec.ts**
 Tests the complete decryption workflow:
-- DPF file detection and upload
+- Rico file detection and upload
 - Credential selection for decryption
 - Full encrypt-then-decrypt cycle
 - Stored credential usage

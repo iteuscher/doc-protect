@@ -77,6 +77,9 @@ export interface WebAuthnCredential {
 
     /** Force fallback mode (for testing) */
     forceFallback?: boolean;
+
+    /** Pre-determined PRF support to avoid re-detection prompts */
+    prfSupportOverride?: PRFSupport;
   }
   
   export interface PRFSupport {

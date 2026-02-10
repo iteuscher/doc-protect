@@ -18,7 +18,7 @@ import {
   listCredentials,
   deleteCredential as removeCredential
 } from '@/lib/storage/indexeddb';
-import { detectPRFSupport } from './prf-detection';
+import { detectPRFSupport, detectPRFSupportLazy, cachePRFSupport } from './prf-detection';
 import { createFallbackCredential } from './fallback';
 
 /**
@@ -32,6 +32,63 @@ import { createFallbackCredential } from './fallback';
  */
 export function useExternalCredential(): undefined {
   return undefined;
+}
+
+/**
+ * Select an existing WebAuthn credential for encryption
+ *
+ * Shows the browser's native passkey picker via navigator.credentials.get(),
+ * then looks up the selected credential in IndexedDB to retrieve the identity
+ * string needed for encryption.
+ *
+ * @returns Selected credential with identity string
+ * @throws Error if user cancels, or credential not found in IndexedDB
+ */
+export async function selectExistingCredential(): Promise<WebAuthnCredential | FallbackCredential> {
+  ensureBrowserEnvironment();
+
+  const credential = await navigator.credentials.get({
+    publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      rpId: window.location.hostname,
+      userVerification: 'required',
+      timeout: 60000,
+    }
+  }) as PublicKeyCredential | null;
+
+  if (!credential) {
+    throw new Error('No credential selected. Please try again or create a new credential.');
+  }
+
+  // Convert rawId to base64url for matching against stored credentials
+  const rawIdBytes = new Uint8Array(credential.rawId);
+  let binary = '';
+  for (let i = 0; i < rawIdBytes.length; i++) {
+    binary += String.fromCharCode(rawIdBytes[i]);
+  }
+  const credentialIdBase64 = btoa(binary);
+  const credentialIdBase64Url = credentialIdBase64
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  // Look up in IndexedDB to get the identity string
+  const storedCredentials = await listCredentials();
+  const matchingCredential = storedCredentials.find(cred => {
+    return cred.credentialId === credentialIdBase64 ||
+           cred.credentialId === credentialIdBase64Url ||
+           cred.credentialId === credential.id;
+  });
+
+  if (!matchingCredential) {
+    throw new Error(
+      'This passkey was not created by DocProtect. ' +
+      'Please select a passkey that was previously created in DocProtect, ' +
+      'or create a new credential instead.'
+    );
+  }
+
+  return matchingCredential;
 }
 
 /**
@@ -70,18 +127,42 @@ export async function createCredential(
     userName = 'DocProtect User',
     keyName = `DocProtect Key ${new Date().toISOString()}`,
     type = 'passkey',
-    forceFallback = false
+    forceFallback = false,
+    prfSupportOverride
   } = options;
 
-  const prfSupport = await detectPRFSupport();
-  const shouldUseFallback = forceFallback || !prfSupport.supported;
+  // Use override → lazy heuristic → full detection (in order of prompt cost)
+  const prfSupport = prfSupportOverride
+    ?? detectPRFSupportLazy()
+    ?? await detectPRFSupport();
 
-  const credential = shouldUseFallback
-    ? await createFallbackCredential({ userId, userName, keyName })
-    : await createPRFCredential({ keyName, type, userId, userName });
+  if (forceFallback || !prfSupport.supported) {
+    const credential = await createFallbackCredential({ userId, userName, keyName });
+    await storeCredential(credential);
+    return credential;
+  }
 
-  await storeCredential(credential);
-  return credential;
+  // Optimistic PRF creation: try PRF first, fall back on failure
+  try {
+    const credential = await createPRFCredential({ keyName, type, userId, userName });
+    await storeCredential(credential);
+    return credential;
+  } catch (error) {
+    // PRF creation failed (authenticator may not support it despite heuristic)
+    // Cache the failure so future calls go straight to fallback
+    console.warn('PRF credential creation failed, falling back to PBKDF2:', error);
+    cachePRFSupport({
+      supported: false,
+      fallbackRequired: true,
+      fallbackMethod: 'pbkdf2-webauthn',
+      platform: prfSupport.platform,
+      detectedAt: new Date().toISOString()
+    });
+
+    const credential = await createFallbackCredential({ userId, userName, keyName });
+    await storeCredential(credential);
+    return credential;
+  }
 }
 
 /**

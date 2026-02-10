@@ -50,11 +50,10 @@ test.describe('Encryption Workflow', () => {
 
     // Should navigate to verify identity step
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
-    await expect(page.locator(`text=${fileName}`)).toBeVisible();
-    await expect(page.locator('text=This is a standard file (will be encrypted)')).toBeVisible();
+    await expect(page.locator(`text=Ready to encrypt: ${fileName}`)).toBeVisible();
   });
 
-  test('should create a new credential for encryption', async () => {
+  test('should create credential and encrypt in one step', async () => {
     // Upload a test file
     const fileContent = 'Test content for credential creation';
     const fileName = 'credential-test.txt';
@@ -74,11 +73,11 @@ test.describe('Encryption Workflow', () => {
     const credentialInput = page.locator('input[placeholder="Credential name"]');
     await credentialInput.fill(credentialName);
 
-    // Click create button
-    await page.locator('button:has-text("Create")').click();
+    // Click Create & Encrypt button — should create credential AND encrypt
+    await page.locator('button:has-text("Create & Encrypt")').click();
 
-    // Wait for credential creation (may show WebAuthn prompt in real browser)
-    await expect(page.locator('text=Encrypt File →')).toBeVisible({ timeout: 10000 });
+    // Should navigate directly to recipients step
+    await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
   });
 
   test('should complete full encryption workflow and download bundle', async () => {
@@ -96,27 +95,21 @@ test.describe('Encryption Workflow', () => {
 
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
-    // Step 2: Create credential
+    // Step 2: Create credential and encrypt in one step
     const credentialInput = page.locator('input[placeholder="Credential name"]');
     await credentialInput.fill(credentialName);
-    await page.locator('button:has-text("Create")').click();
-
-    // Wait for credential creation
-    await expect(page.locator('text=Encrypt File →')).toBeVisible({ timeout: 10000 });
-
-    // Step 3: Proceed to encryption
-    await page.locator('button:has-text("Encrypt File →")').click();
+    await page.locator('button:has-text("Create & Encrypt")').click();
 
     // Should navigate to recipients step
     await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
 
-    // Step 4: Skip recipients and go to sharing
+    // Step 3: Skip recipients and go to sharing
     await page.locator('button:has-text("Skip Recipients")').click();
 
     // Should show sharing options
     await expect(page.locator('text=Share the Encrypted File')).toBeVisible();
 
-    // Step 5: Download bundle
+    // Step 4: Download bundle
     const downloadPromise = page.waitForEvent('download');
     await page.locator('button:has-text("Download Bundle")').click();
     const download = await downloadPromise;
@@ -127,7 +120,7 @@ test.describe('Encryption Workflow', () => {
     await expect(page.locator('text=Encryption Complete!')).toBeVisible();
   });
 
-  test('should allow selecting an existing credential', async () => {
+  test('should allow selecting an existing credential via dropdown', async () => {
     // First, create a credential by going through the flow once
     const fileContent1 = 'First file';
     const fileName1 = 'first-file.txt';
@@ -144,10 +137,8 @@ test.describe('Encryption Workflow', () => {
 
     const credentialInput = page.locator('input[placeholder="Credential name"]');
     await credentialInput.fill(credentialName);
-    await page.locator('button:has-text("Create")').click();
+    await page.locator('button:has-text("Create & Encrypt")').click();
 
-    await expect(page.locator('text=Encrypt File →')).toBeVisible({ timeout: 10000 });
-    await page.locator('button:has-text("Encrypt File →")').click();
     await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
     await page.locator('button:has-text("Skip Recipients")').click();
     await page.locator('button:has-text("Download Bundle")').click();
@@ -170,6 +161,9 @@ test.describe('Encryption Workflow', () => {
 
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
+    // Expand the existing credentials dropdown
+    await page.locator('text=Or use an existing credential / password manager').click();
+
     // Should see existing credential
     await expect(page.locator('text=Use Existing Credential')).toBeVisible();
     await expect(page.locator(`text=${credentialName}`)).toBeVisible();
@@ -177,11 +171,11 @@ test.describe('Encryption Workflow', () => {
     // Select the existing credential
     await page.locator(`button:has-text("${credentialName}")`).first().click();
 
-    // Should be able to proceed
+    // Should be able to proceed with Encrypt File button
     await expect(page.locator('text=Encrypt File →')).toBeVisible();
   });
 
-  test('should handle external credential selection', async () => {
+  test('should handle external credential selection via dropdown', async () => {
     const fileContent = 'External credential test';
     const fileName = 'external-test.txt';
 
@@ -193,6 +187,9 @@ test.describe('Encryption Workflow', () => {
     });
 
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
+
+    // Expand the existing credentials dropdown
+    await page.locator('text=Or use an existing credential / password manager').click();
 
     // Click "Use Password Manager" button
     await page.locator('button:has-text("Select from Google, iCloud")').click();
@@ -224,11 +221,10 @@ test.describe('Encryption Workflow', () => {
     // Identity step should be active
     await expect(page.locator('[class*="emerald"]', { hasText: 'Identity' })).toBeVisible();
 
-    // Create credential and encrypt
+    // Create credential and encrypt in one step
     const credentialInput = page.locator('input[placeholder="Credential name"]');
     await credentialInput.fill(credentialName);
-    await page.locator('button:has-text("Create")').click();
-    await page.locator('button:has-text("Encrypt File →")').click();
+    await page.locator('button:has-text("Create & Encrypt")').click();
 
     // Recipients step should be active
     await expect(page.locator('[class*="emerald"]', { hasText: 'Recipients' })).toBeVisible({ timeout: 15000 });
@@ -271,7 +267,7 @@ test.describe('Encryption Workflow', () => {
     await credentialInput.clear();
 
     // Try to create without entering name (button should be disabled)
-    const createButton = page.locator('button:has-text("Create")');
+    const createButton = page.locator('button:has-text("Create & Encrypt")');
     await expect(createButton).toBeDisabled();
 
     // Enter name, button should be enabled

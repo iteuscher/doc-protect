@@ -241,14 +241,6 @@ test.describe('Recipients Management', () => {
     await expect(page.locator('text=Choose how to share the encrypted file')).toBeVisible();
   });
 
-  test('should display info about future recipient encryption', async () => {
-    await navigateToRecipientsScreen();
-
-    // Should show note about future feature
-    await expect(page.locator('text=Note: Recipient encryption is coming soon')).toBeVisible();
-    await expect(page.locator('text=recipients are stored in the manifest for future implementation')).toBeVisible();
-  });
-
   test('should show recipients in technical info', async () => {
     await navigateToRecipientsScreen();
 

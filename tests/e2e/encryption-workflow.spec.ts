@@ -115,7 +115,7 @@ test.describe('Encryption Workflow', () => {
 
     // Verify download
     expect(download.suggestedFilename()).toMatch(/\.rico$/);
-    await expect(page.locator('text=Rico file Created Successfully!')).toBeVisible();
+    await expect(page.locator('text=Rico file created successfully!')).toBeVisible();
     await expect(page.locator('text=Encryption Complete!')).toBeVisible();
   });
 

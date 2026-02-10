@@ -238,15 +238,7 @@ test.describe('Recipients Management', () => {
 
     // Should navigate to sharing
     await expect(page.getByRole('heading', { name: 'Share the Encrypted File' })).toBeVisible();
-    await expect(page.locator('text=Choose how to share the encrypted file')).toBeVisible();
-  });
-
-  test('should display info about future recipient encryption', async () => {
-    await navigateToRecipientsScreen();
-
-    // Should show note about future feature
-    await expect(page.locator('text=Note: Recipient encryption is coming soon')).toBeVisible();
-    await expect(page.locator('text=recipients are stored in the manifest for future implementation')).toBeVisible();
+    await expect(page.locator('text=Share the Encrypted File')).toBeVisible();
   });
 
   test('should show recipients in technical info', async () => {
@@ -376,7 +368,7 @@ test.describe('Recipients Management', () => {
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
     // Select external credential
-    await page.locator('button:has-text("Select from Google, iCloud")').click();
+    await page.locator('button:has-text("Google, iCloud, Bitwarden")').click();
 
     // Note: Actual decryption won't work with mock data, but we can verify
     // that the workflow doesn't show recipients step

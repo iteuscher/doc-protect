@@ -164,11 +164,7 @@ export default function Home() {
       customCredentialName: file.name.replace(/\.(rico|pdf|docx?|txt|png|jpe?g)$/i, '')
     }));
 
-    setStatusMessage(
-      isRico
-        ? `Ready to decrypt: ${file.name}`
-        : `Ready to encrypt: ${file.name}`
-    );
+    setStatusMessage(isRico ? 'Ready to decrypt' : 'Ready to encrypt');
     setErrorMessage(null);
   }, []);
 
@@ -843,16 +839,11 @@ export default function Home() {
               </div>
               <div>
                 <p className="text-lg font-medium text-white mb-2">Upload a File</p>
-                <p className="text-sm text-slate-400">
-                  Drag & drop or click anywhere to select a file to encrypt or decrypt
-                </p>
+                <p className="text-sm text-slate-400">Drag & drop or click to select</p>
               </div>
               <div className="rounded-full bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400">
                 Choose File
               </div>
-              <p className="text-xs text-slate-500">
-                .rico files will be decrypted • Other files will be encrypted
-              </p>
               <input type="file" className="hidden" onChange={handleFileChange} />
             </label>
           </section>
@@ -906,7 +897,7 @@ export default function Home() {
                       {/* Create New Credential + Encrypt (combined) */}
                       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
                         <p className="text-sm font-medium text-emerald-200 mb-3">
-                          Create New Credential & Encrypt (Recommended)
+                          New Passkey
                         </p>
                         <div className="flex gap-2">
                           <input
@@ -925,9 +916,6 @@ export default function Home() {
                             {isProcessing ? 'Processing...' : 'Create & Encrypt'}
                           </button>
                         </div>
-                        <p className="text-xs text-slate-400 mt-2">
-                          Creates a passkey and encrypts the file in one step
-                        </p>
                       </div>
 
                       {/* Collapsible: Existing Credential / Password Manager */}
@@ -946,7 +934,7 @@ export default function Home() {
                             >
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
-                            Or use an existing credential / password manager
+                            Use existing
                           </button>
 
                           {showExistingOptions && (
@@ -955,7 +943,7 @@ export default function Home() {
                               {credentials.length > 0 && (
                                 <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
                                   <p className="text-sm font-medium text-blue-200 mb-3">
-                                    Use Existing Credential
+                                    Existing Credential
                                   </p>
                                   <div className="flex flex-wrap gap-2">
                                     {credentials.map((cred) => (
@@ -991,11 +979,8 @@ export default function Home() {
                                       : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
                                   }`}
                                 >
-                                  Select from Google, iCloud, Bitwarden, 1Password, etc.
+                                  Google, iCloud, Bitwarden...
                                 </button>
-                                <p className="text-xs text-slate-400 mt-2">
-                                  Use an existing Rico passkey from your password manager
-                                </p>
                               </div>
 
                               {/* Proceed Button (for existing/external paths) */}
@@ -1020,15 +1005,11 @@ export default function Home() {
               {/* DECRYPTION PATH */}
               {workflow.fileType === 'rico' && (
                 <div className="space-y-4">
-                  <p className="text-sm text-slate-300">
-                    Select the credential used to encrypt this file:
-                  </p>
-
                   {/* Stored Credentials */}
                   {credentials.length > 0 && (
                     <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
                       <p className="text-sm font-medium text-blue-200 mb-3">
-                        Use Stored Credential
+                        Stored Credentials
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {credentials.map((cred) => (
@@ -1064,7 +1045,7 @@ export default function Home() {
                           : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
                       }`}
                     >
-                      Select from Google, iCloud, Bitwarden, 1Password, etc.
+                      Google, iCloud, Bitwarden...
                     </button>
                   </div>
 
@@ -1101,7 +1082,7 @@ export default function Home() {
               </h2>
 
               <p className="text-sm text-slate-300 mb-4">
-                Who should be able to decrypt this file? Add their email addresses.
+                Who should be able to decrypt this file?
               </p>
 
               {/* Add Recipient */}
@@ -1143,13 +1124,6 @@ export default function Home() {
                   ))}
                 </div>
               )}
-
-              {/* Note about future feature */}
-              <div className="rounded-lg bg-blue-500/5 border border-blue-500/20 p-3 mb-4">
-                <p className="text-xs text-blue-200">
-                  📝 Note: Recipient encryption is coming soon. For now, recipients are stored in the manifest for future implementation.
-                </p>
-              </div>
 
               {/* Navigation */}
               <div className="flex gap-2">

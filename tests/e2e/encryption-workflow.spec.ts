@@ -49,7 +49,7 @@ test.describe('Encryption Workflow', () => {
 
     // Should navigate to verify identity step
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
-    await expect(page.locator(`text=Ready to encrypt: ${fileName}`)).toBeVisible();
+    await expect(page.locator('text=Ready to encrypt')).toBeVisible();
   });
 
   test('should create credential and encrypt in one step', async () => {
@@ -115,7 +115,7 @@ test.describe('Encryption Workflow', () => {
 
     // Verify download
     expect(download.suggestedFilename()).toMatch(/\.rico$/);
-    await expect(page.locator('text=Rico file Created Successfully!')).toBeVisible();
+    await expect(page.locator('text=Rico file created successfully!')).toBeVisible();
     await expect(page.locator('text=Encryption Complete!')).toBeVisible();
   });
 
@@ -161,10 +161,10 @@ test.describe('Encryption Workflow', () => {
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
     // Expand the existing credentials dropdown
-    await page.locator('text=Or use an existing credential / password manager').click();
+    await page.locator('text=Use existing').click();
 
     // Should see existing credential
-    await expect(page.locator('text=Use Existing Credential')).toBeVisible();
+    await expect(page.locator('text=Existing Credential')).toBeVisible();
     await expect(page.locator(`text=${credentialName}`)).toBeVisible();
 
     // Select the existing credential
@@ -188,10 +188,10 @@ test.describe('Encryption Workflow', () => {
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
     // Expand the existing credentials dropdown
-    await page.locator('text=Or use an existing credential / password manager').click();
+    await page.locator('text=Use existing').click();
 
     // Click "Use Password Manager" button
-    await page.locator('button:has-text("Select from Google, iCloud")').click();
+    await page.locator('button:has-text("Google, iCloud, Bitwarden")').click();
 
     // Should show proceed button
     await expect(page.locator('text=Encrypt File →')).toBeVisible();

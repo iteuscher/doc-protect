@@ -83,7 +83,7 @@ test.describe('Decryption Workflow', () => {
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
     // Status should show Rico detection
-    await expect(page.locator(`text=Ready to decrypt: ${ricoFileName}`)).toBeVisible();
+    await expect(page.locator('text=Ready to decrypt')).toBeVisible();
   });
 
   test('should show credential selection options for decryption', async () => {
@@ -99,12 +99,9 @@ test.describe('Decryption Workflow', () => {
 
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
-    // Should see decryption-specific text
-    await expect(page.locator('text=Select the credential used to encrypt this file')).toBeVisible();
-
     // Should see password manager option
     await expect(page.locator('text=Use Password Manager')).toBeVisible();
-    await expect(page.locator('button:has-text("Select from Google, iCloud")')).toBeVisible();
+    await expect(page.locator('button:has-text("Google, iCloud, Bitwarden")')).toBeVisible();
   });
 
   test('should allow external credential for decryption', async () => {
@@ -153,7 +150,7 @@ test.describe('Decryption Workflow', () => {
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
     // Should see the credential we created
-    await expect(page.locator('text=Use Stored Credential')).toBeVisible();
+    await expect(page.locator('text=Stored Credentials')).toBeVisible();
     await expect(page.locator(`text=${credentialName}`)).toBeVisible();
 
     // Select the credential
@@ -192,8 +189,8 @@ test.describe('Decryption Workflow', () => {
 
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
-    // Should see "Use Stored Credential" section
-    await expect(page.locator('text=Use Stored Credential')).toBeVisible();
+    // Should see stored credentials section
+    await expect(page.locator('text=Stored Credentials')).toBeVisible();
 
     // Should see the credential we created
     await expect(page.locator(`text=${credentialName}`)).toBeVisible();
@@ -230,7 +227,7 @@ test.describe('Decryption Workflow', () => {
     });
 
     // Check initial status
-    await expect(page.locator(`text=Ready to decrypt: ${ricoFileName}`)).toBeVisible();
+    await expect(page.locator('text=Ready to decrypt')).toBeVisible();
 
     // Select external credential
     await page.locator('button:has-text("Select from Google, iCloud")').click();
@@ -252,7 +249,7 @@ test.describe('Decryption Workflow', () => {
 
     // Should NOT show Recipients or Share steps (those are encryption-only)
     // Just verify the page is showing the decryption path
-    await expect(page.locator('text=Select the credential used to encrypt')).toBeVisible();
+    await expect(page.locator('text=Use Password Manager')).toBeVisible();
   });
 
   test('should handle "Decrypt Another File" action', async () => {

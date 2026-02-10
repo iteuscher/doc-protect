@@ -127,10 +127,10 @@ test.describe('Credential Management', () => {
     await navigateToCredentialScreen('final-test.txt');
 
     // Expand the existing credentials dropdown
-    await page.locator('text=Or use an existing credential / password manager').click();
+    await page.locator('text=Use existing').click();
 
-    // Should show "Use Existing Credential" section
-    await expect(page.locator('text=Use Existing Credential')).toBeVisible();
+    // Should show existing credential section
+    await expect(page.locator('text=Existing Credential')).toBeVisible();
 
     // All credentials should be visible
     for (const credName of credentials) {
@@ -148,7 +148,7 @@ test.describe('Credential Management', () => {
     await navigateToCredentialScreen('second-file.txt');
 
     // Expand the existing credentials dropdown
-    await page.locator('text=Or use an existing credential / password manager').click();
+    await page.locator('text=Use existing').click();
 
     // Select the existing credential
     const credButton = page.locator(`button:has-text("${credName}")`).first();
@@ -205,7 +205,7 @@ test.describe('Credential Management', () => {
     await navigateToCredentialScreen();
 
     // Expand the existing credentials dropdown
-    await page.locator('text=Or use an existing credential / password manager').click();
+    await page.locator('text=Use existing').click();
 
     // Click "Use Password Manager"
     const pwdMgrButton = page.locator('button:has-text("Select from Google, iCloud")');
@@ -221,22 +221,22 @@ test.describe('Credential Management', () => {
     await expect(page.locator('text=password manager').first()).toBeVisible();
   });
 
-  test('should show helpful text for creating new credential', async () => {
+  test('should show new passkey section', async () => {
     await navigateToCredentialScreen();
 
-    // Should show recommendation text
-    await expect(page.locator('text=Create New Credential & Encrypt (Recommended)')).toBeVisible();
-    await expect(page.locator('text=Creates a passkey and encrypts the file in one step')).toBeVisible();
+    // Should show new passkey section
+    await expect(page.locator('text=New Passkey')).toBeVisible();
+    await expect(page.locator('button:has-text("Create & Encrypt")')).toBeVisible();
   });
 
-  test('should show helpful text for password manager option', async () => {
+  test('should show password manager option', async () => {
     await navigateToCredentialScreen();
 
     // Expand the existing credentials dropdown
-    await page.locator('text=Or use an existing credential / password manager').click();
+    await page.locator('text=Use existing').click();
 
-    // Should show password manager text
-    await expect(page.locator('text=Use an existing Rico passkey from your password manager')).toBeVisible();
+    // Should show password manager button
+    await expect(page.locator('button:has-text("Google, iCloud, Bitwarden")')).toBeVisible();
   });
 
   test('should display PRF support status in technical info', async () => {

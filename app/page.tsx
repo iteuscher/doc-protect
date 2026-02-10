@@ -88,6 +88,9 @@ export default function Home() {
   const [encryptionSettings, setEncryptionSettings] = useState<EncryptionSettings>(DEFAULT_SETTINGS);
   const [keypairs, setKeypairs] = useState<StoredKeypair[]>([]);
 
+  // About page state
+  const [showAbout, setShowAbout] = useState(false);
+
   // Bootstrap
   useEffect(() => {
     async function bootstrap() {
@@ -615,7 +618,7 @@ export default function Home() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setShowSettings(!showSettings)}
+                onClick={() => { setShowSettings(!showSettings); setShowAbout(false); }}
                 className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
                   showSettings
                     ? 'bg-slate-700 border-white/20 text-white'
@@ -631,11 +634,18 @@ export default function Home() {
               </button>
               <button
                 type="button"
-                onClick={handleReset}
-                className="rounded-lg bg-red-500/20 border border-red-500/40 px-3 py-1.5 text-xs font-semibold text-red-300 transition hover:bg-red-500/30"
-                title="Reset all stored data"
+                onClick={() => { setShowAbout(!showAbout); setShowSettings(false); }}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                  showAbout
+                    ? 'bg-slate-700 border-white/20 text-white'
+                    : 'bg-slate-700/50 border-white/10 text-slate-300 hover:bg-slate-700'
+                }`}
+                title="About Doc Protect"
               >
-                Reset All
+                <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                About
               </button>
             </div>
           </div>
@@ -751,6 +761,158 @@ export default function Home() {
                 )}
               </div>
             )}
+
+            {/* Reset All Data */}
+            <div className="border-t border-white/10 pt-4">
+              <button
+                type="button"
+                onClick={handleReset}
+                className="rounded-lg bg-red-500/20 border border-red-500/40 px-3 py-1.5 text-xs font-semibold text-red-300 transition hover:bg-red-500/30"
+                title="Reset all stored data"
+              >
+                Reset All Data
+              </button>
+              <p className="text-xs text-slate-500 mt-1">
+                Deletes all stored credentials and bundles. This cannot be undone.
+              </p>
+            </div>
+          </section>
+        )}
+
+        {/* About Page */}
+        {showAbout && (
+          <section className="rounded-xl border border-white/10 bg-slate-900/40 p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white">About Doc Protect</h2>
+              <button
+                type="button"
+                onClick={() => setShowAbout(false)}
+                className="rounded-lg bg-slate-700/50 border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-slate-700"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  Doc Protect is a document encryption platform that lets you encrypt and securely share files using a modern, passwordless approach. Instead of relying on password protected PDFs, users can unlock and share documents using modern authentication methods—like passkeys, YubiKeys, biometrics, or identity providers—while keeping encryption and decryption local in the browser for maximum privacy and security.
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  Doc Protect runs locally on the browser to promote privacy and interfaces with identity providers such as hardware tokens, passkeys, and SSO in order to provide a passwordless approach to key generation and encryption. This enables individuals and enterprises to store and share documents securely without relying on shared passwords. It will mitigate issues that have been exploited in recent hacks of managed file transfer services.
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  Adobe PDF or Microsoft Word password protection are commonly used and easy to navigate. However they rely on a shared password that cannot be changed once the password is set. Additionally, there is no rate limiting on attempts to crack the password and sharing requires giving full control to the person who the document is shared with. Doc Protect ties together modern advances in encryption methods and passwordless authentication to create a stronger encryption model for documents.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-white mb-1">Version</h3>
+              <p className="text-xs text-slate-400">
+                v0.1 — Pre-alpha, active research and development.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-white mb-2">Key Features</h3>
+              <ul className="space-y-1.5 text-sm text-slate-300">
+                <li className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5">&#x2022;</span><span><strong className="text-white">Passwordless Encryption</strong> — Uses WebAuthn passkeys and security keys instead of passwords</span></li>
+                <li className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5">&#x2022;</span><span><strong className="text-white">Browser-Based</strong> — All encryption and decryption happens locally in your browser</span></li>
+                <li className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5">&#x2022;</span><span><strong className="text-white">Unified Workflow</strong> — Single interface for both encryption and decryption</span></li>
+                <li className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5">&#x2022;</span><span><strong className="text-white">PRF Support</strong> — Automatic detection and fallback for systems without PRF support</span></li>
+                <li className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5">&#x2022;</span><span><strong className="text-white">Bundle Format</strong> — Standard <code className="text-xs bg-slate-800 px-1 py-0.5 rounded">.rico</code> format with embedded manifest and policy</span></li>
+                <li className="flex items-start gap-2"><span className="text-emerald-400 mt-0.5">&#x2022;</span><span><strong className="text-white">Local Storage</strong> — Credentials stored securely in IndexedDB, never leaving your device</span></li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-white mb-2">How It Works</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-lg bg-slate-800/50 border border-white/5 p-3">
+                  <p className="text-xs font-semibold text-emerald-400 mb-2">Encryption Flow</p>
+                  <ol className="text-xs text-slate-300 space-y-1 list-decimal list-inside">
+                    <li>Create a WebAuthn passkey or security key</li>
+                    <li>System checks if PRF extension is supported</li>
+                    <li>File is encrypted using age encryption with WebAuthn PRF</li>
+                    <li>Encrypted file is packaged into <code className="bg-slate-700 px-1 rounded">.rico</code> format</li>
+                    <li>Download the encrypted bundle</li>
+                  </ol>
+                </div>
+                <div className="rounded-lg bg-slate-800/50 border border-white/5 p-3">
+                  <p className="text-xs font-semibold text-blue-400 mb-2">Decryption Flow</p>
+                  <ol className="text-xs text-slate-300 space-y-1 list-decimal list-inside">
+                    <li>Upload a <code className="bg-slate-700 px-1 rounded">.rico</code> file</li>
+                    <li>Select the credential used for encryption</li>
+                    <li>Authenticate with your passkey or security key</li>
+                    <li>File is decrypted using the WebAuthn identity</li>
+                    <li>Download the decrypted file</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-white mb-1">PRF Fallback</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                For systems without WebAuthn PRF support (e.g., Windows 10/11), Doc Protect automatically falls back to standard WebAuthn credential creation with PBKDF2 key derivation from WebAuthn assertions.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-white mb-2">Technical Details</h3>
+              <ul className="text-xs text-slate-400 space-y-1">
+                <li><strong className="text-slate-300">Encryption:</strong> <a href="https://c2sp.org/age" className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">age</a> — modern file encryption, via <a href="https://github.com/FiloSottile/typage" className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">typage</a> (TypeScript implementation)</li>
+                <li><strong className="text-slate-300">Authentication:</strong> <a href="https://w3c.github.io/webauthn/#prf-extension" className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">WebAuthn PRF</a> — derives keys from your authenticator</li>
+                <li><strong className="text-slate-300">Framework:</strong> Next.js 16 (React 19)</li>
+                <li><strong className="text-slate-300">Storage:</strong> IndexedDB via localForage</li>
+                <li><strong className="text-slate-300">Bundling:</strong> JSZip</li>
+                <li><strong className="text-slate-300">Backend:</strong> Supabase (optional)</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-white mb-2">Browser Compatibility</h3>
+              <div className="overflow-x-auto">
+                <table className="text-xs text-slate-300 w-full">
+                  <thead>
+                    <tr className="border-b border-white/10">
+                      <th className="text-left py-1.5 pr-4 text-slate-400 font-medium">Platform</th>
+                      <th className="text-left py-1.5 pr-4 text-slate-400 font-medium">PRF Support</th>
+                      <th className="text-left py-1.5 text-slate-400 font-medium">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    <tr><td className="py-1.5 pr-4">macOS 13+</td><td className="py-1.5 pr-4 text-emerald-400">Yes</td><td className="py-1.5">Via Touch ID</td></tr>
+                    <tr><td className="py-1.5 pr-4">iOS 16+</td><td className="py-1.5 pr-4 text-emerald-400">Yes</td><td className="py-1.5">Via Face ID / Touch ID</td></tr>
+                    <tr><td className="py-1.5 pr-4">Android 14+</td><td className="py-1.5 pr-4 text-emerald-400">Yes</td><td className="py-1.5">Via platform authenticator</td></tr>
+                    <tr><td className="py-1.5 pr-4">Chrome OS</td><td className="py-1.5 pr-4 text-emerald-400">Yes</td><td className="py-1.5">Via platform authenticator</td></tr>
+                    <tr><td className="py-1.5 pr-4">Windows 10/11</td><td className="py-1.5 pr-4 text-red-400">No</td><td className="py-1.5">Uses fallback mode (PBKDF2)</td></tr>
+                    <tr><td className="py-1.5 pr-4">YubiKey 5+</td><td className="py-1.5 pr-4 text-emerald-400">Yes</td><td className="py-1.5">Hardware support (cross-platform)</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                Requires Chrome 108+, Edge 108+, Safari 16.4+, or Firefox 102+ (limited PRF support).
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-white mb-2">Security</h3>
+              <ul className="text-xs text-slate-400 space-y-1">
+                <li><strong className="text-slate-300">Local-First:</strong> Encryption and decryption happens entirely in the browser</li>
+                <li><strong className="text-slate-300">No Server-Side Keys:</strong> The server never sees your encryption keys</li>
+                <li><strong className="text-slate-300">IndexedDB Storage:</strong> Credentials stored locally, never synced</li>
+                <li><strong className="text-slate-300">PRF Extension:</strong> Uses hardware-backed key derivation when available</li>
+                <li><strong className="text-slate-300">Fallback Security:</strong> PBKDF2 with 100,000 iterations for non-PRF systems</li>
+              </ul>
+            </div>
           </section>
         )}
 

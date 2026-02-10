@@ -1,5 +1,4 @@
 import { test, expect, type Page } from '@playwright/test';
-import path from 'path';
 
 /**
  * E2E tests for the encryption workflow

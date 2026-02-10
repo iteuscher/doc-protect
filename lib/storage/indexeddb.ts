@@ -11,6 +11,7 @@
 
 import localforage from 'localforage';
 import type { WebAuthnCredential, FallbackCredential, StoredCredential } from '@/lib/types/credential';
+import type { EncryptionSettings, StoredKeypair } from '@/lib/types/settings';
 
 // Configure localForage
 const credentialStore = localforage.createInstance({
@@ -23,6 +24,18 @@ const bundleStore = localforage.createInstance({
   name: 'DocProtect',
   storeName: 'bundles',
   description: 'Locally stored encrypted bundles'
+});
+
+const settingsStore = localforage.createInstance({
+  name: 'DocProtect',
+  storeName: 'settings',
+  description: 'Encryption settings for DocProtect'
+});
+
+const keypairStore = localforage.createInstance({
+  name: 'DocProtect',
+  storeName: 'keypairs',
+  description: 'PQ and x25519 keypairs for DocProtect'
 });
 
 /**
@@ -239,6 +252,8 @@ export async function deleteBundle(bundleId: string): Promise<void> {
 export async function clearAllData(): Promise<void> {
   await credentialStore.clear();
   await bundleStore.clear();
+  await settingsStore.clear();
+  await keypairStore.clear();
 }
 
 /**
@@ -248,6 +263,73 @@ export async function clearAllData(): Promise<void> {
  */
 export async function clearCredentials(): Promise<void> {
   await credentialStore.clear();
+}
+
+// ====================
+// SETTINGS OPERATIONS
+// ====================
+
+const SETTINGS_KEY = 'encryption-settings';
+
+/**
+ * Get encryption settings
+ */
+export async function getSettings(): Promise<EncryptionSettings | null> {
+  validateBrowserStorageSupport();
+  return settingsStore.getItem<EncryptionSettings>(SETTINGS_KEY);
+}
+
+/**
+ * Save encryption settings
+ */
+export async function saveSettings(settings: EncryptionSettings): Promise<void> {
+  validateBrowserStorageSupport();
+  await settingsStore.setItem(SETTINGS_KEY, settings);
+}
+
+// ====================
+// KEYPAIR OPERATIONS
+// ====================
+
+/**
+ * Store a PQ or x25519 keypair
+ */
+export async function storeKeypair(keypair: StoredKeypair): Promise<StoredKeypair> {
+  validateBrowserStorageSupport();
+  await keypairStore.setItem(keypair.id, keypair);
+  return keypair;
+}
+
+/**
+ * Get keypair by ID
+ */
+export async function getKeypair(id: string): Promise<StoredKeypair | null> {
+  validateBrowserStorageSupport();
+  return keypairStore.getItem<StoredKeypair>(id);
+}
+
+/**
+ * List all stored keypairs
+ */
+export async function listKeypairs(): Promise<StoredKeypair[]> {
+  validateBrowserStorageSupport();
+
+  const results: StoredKeypair[] = [];
+  await keypairStore.iterate<StoredKeypair, void>((value) => {
+    if (value?.id) {
+      results.push(value);
+    }
+  });
+
+  return results;
+}
+
+/**
+ * Delete keypair by ID
+ */
+export async function deleteKeypair(id: string): Promise<void> {
+  validateBrowserStorageSupport();
+  await keypairStore.removeItem(id);
 }
 
 interface BundleRecord {

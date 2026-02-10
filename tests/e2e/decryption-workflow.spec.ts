@@ -251,10 +251,6 @@ test.describe('Decryption Workflow', () => {
     await expect(page.locator('[class*="emerald"]', { hasText: 'Identity' })).toBeVisible();
 
     // Should NOT show Recipients or Share steps (those are encryption-only)
-    const recipientsIndicator = page.locator('text=Recipients').first();
-    const shareIndicator = page.locator('text=Share').first();
-
-    // These may not be visible for decryption workflow
     // Just verify the page is showing the decryption path
     await expect(page.locator('text=Select the credential used to encrypt')).toBeVisible();
   });

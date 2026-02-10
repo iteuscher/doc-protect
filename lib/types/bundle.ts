@@ -60,7 +60,7 @@ export interface DocProtectBundle {
   
   export interface EncryptionInfo {
     /** Encryption algorithm identifier */
-    algorithm: 'age' | 'age-fallback';
+    algorithm: 'age' | 'age-pq' | 'age-x25519' | 'age-fallback';
     
     /** age format version */
     format: 'age-encryption.org/v1';
@@ -74,7 +74,7 @@ export interface DocProtectBundle {
   
   export interface RecipientInfo {
     /** Recipient type */
-    type: 'webauthn-passkey' | 'webauthn-securitykey' | 'x25519' | 'fallback-pbkdf2';
+    type: 'webauthn-passkey' | 'webauthn-securitykey' | 'x25519' | 'pq-hybrid' | 'fallback-pbkdf2';
     
     /** age identity string (for WebAuthn PRF or X25519) */
     identity?: string;

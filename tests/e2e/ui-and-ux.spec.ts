@@ -84,7 +84,6 @@ test.describe('UI and UX Features', () => {
       // This test verifies that errors are styled correctly
       // Since we can't easily trigger an error without proper setup,
       // we'll just verify the error styling exists
-      const errorElement = page.locator('[class*="text-red"]').first();
       // Error may not be visible initially, which is fine
     });
   });

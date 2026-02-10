@@ -18,6 +18,7 @@ import type {
   DocProtectManifest
 } from '@/lib/types/bundle';
 import type { WebAuthnCredential, FallbackCredential } from '@/lib/types/credential';
+import type { KeypairCredential } from '@/lib/types/encryption-credential';
 import { createBundle, parseBundle } from './bundle';
 import { createManifest, updatePolicy } from './manifest';
 import {
@@ -29,13 +30,13 @@ import {
 export interface EncryptOptions {
   /** File to encrypt */
   file: File;
-  
+
   /** Owner's credential (for encryption) */
-  ownerCredential: WebAuthnCredential | FallbackCredential;
-  
+  ownerCredential: WebAuthnCredential | FallbackCredential | KeypairCredential;
+
   /** Additional recipients (optional) */
   recipients?: RecipientInfo[];
-  
+
   /** Access control policy (optional, defaults created if not provided) */
   policy?: PolicyObject;
 }
@@ -43,9 +44,9 @@ export interface EncryptOptions {
 export interface DecryptOptions {
   /** DocProtect bundle to decrypt */
   bundle: DocProtectBundle;
-  
+
   /** Credential to use for decryption (optional - will prompt if not provided) */
-  credential?: WebAuthnCredential | FallbackCredential;
+  credential?: WebAuthnCredential | FallbackCredential | KeypairCredential;
 }
 
 export interface DecryptResult {
@@ -108,6 +109,9 @@ export async function encryptFile(options: EncryptOptions): Promise<DocProtectBu
 
     encryptedPayload = encryptedData;
     fallbackSalt = arrayBufferToBase64(salt);
+  } else if (ownerCredential.type === 'pq-keypair' || ownerCredential.type === 'x25519-keypair') {
+    const encrypter = await createEncrypterWithRecipients(ownerCredential, recipients);
+    encryptedPayload = await encrypter.encrypt(fileBuffer);
   } else {
     const encrypter = await createEncrypterWithRecipients(ownerCredential, recipients);
     encryptedPayload = await encrypter.encrypt(fileBuffer);
@@ -165,7 +169,7 @@ export async function decryptFile(options: DecryptOptions): Promise<DecryptResul
       recipientCount: manifest.encryptionInfo.recipients.length,
       recipientTypes: manifest.encryptionInfo.recipients.map(r => r.type),
       credentialType: credential?.type,
-      credentialId: credential?.credentialId
+      credentialId: credential && 'credentialId' in credential ? credential.credentialId : undefined
     });
 
     let decrypted: Uint8Array;
@@ -249,31 +253,33 @@ export async function decryptFile(options: DecryptOptions): Promise<DecryptResul
         );
       }
     } else {
-      // Standard age decryption
+      // Standard age decryption (WebAuthn PRF, PQ hybrid, or x25519)
       if (credential && isFallbackCredential(credential)) {
         throw new Error('Cannot use fallback credential to decrypt age-encrypted bundle');
       }
 
+      const isKeypairCredential = credential && (credential.type === 'pq-keypair' || credential.type === 'x25519-keypair');
+
       // Verify credential matches bundle (if provided)
-      if (credential && credential.identity) {
+      if (credential && !isKeypairCredential && 'identity' in credential && credential.identity) {
         const matchingRecipient = manifest.encryptionInfo.recipients.find(
           (recipient) => recipient.identity === credential.identity
         );
-        
+
         if (!matchingRecipient) {
-          // Get user-friendly names for better error message
-          const bundleCredentialName = manifest.encryptionInfo.recipients[0]?.label || 
-            manifest.encryptionInfo.recipients[0]?.identity?.substring(0, 20) + '...' || 
+          const bundleCredentialName = manifest.encryptionInfo.recipients[0]?.label ||
+            manifest.encryptionInfo.recipients[0]?.identity?.substring(0, 20) + '...' ||
             'unknown credential';
           const bundleCredentialType = manifest.encryptionInfo.recipients[0]?.type === 'webauthn-passkey'
             ? 'passkey'
             : manifest.encryptionInfo.recipients[0]?.type === 'webauthn-securitykey'
             ? 'security key'
             : 'credential';
-          
-          const selectedCredentialName = credential.keyName || 
-            credential.identity.substring(0, 20) + '...';
-          
+
+          const webauthnCred = credential as WebAuthnCredential;
+          const selectedCredentialName = webauthnCred.keyName ||
+            webauthnCred.identity.substring(0, 20) + '...';
+
           throw new Error(
             `Wrong credential selected.\n\n` +
             `You selected: "${selectedCredentialName}"\n` +
@@ -283,9 +289,32 @@ export async function decryptFile(options: DecryptOptions): Promise<DecryptResul
         }
       }
 
-      const decrypter = createDecrypterWithIdentity(
-        credential && !isFallbackCredential(credential) ? credential : undefined
-      );
+      // For keypair credentials, verify the recipient matches
+      if (isKeypairCredential) {
+        const keypairCred = credential as KeypairCredential;
+        const matchingRecipient = manifest.encryptionInfo.recipients.find(
+          (recipient) => recipient.publicKey === keypairCred.recipient || recipient.identity === keypairCred.identity
+        );
+
+        if (!matchingRecipient) {
+          throw new Error(
+            `Wrong keypair selected.\n\n` +
+            `You selected: "${keypairCred.label}"\n` +
+            `But this file was not encrypted with this keypair.\n\n` +
+            `Please select the keypair that was used to encrypt this file.`
+          );
+        }
+      }
+
+      // Build the decrypter
+      let decrypterCredential: WebAuthnCredential | KeypairCredential | undefined;
+      if (isKeypairCredential) {
+        decrypterCredential = credential as KeypairCredential;
+      } else if (credential && !isFallbackCredential(credential)) {
+        decrypterCredential = credential as WebAuthnCredential;
+      }
+
+      const decrypter = createDecrypterWithIdentity(decrypterCredential);
       
       try {
         decrypted = await decrypter.decrypt(encryptedPayload);
@@ -412,29 +441,29 @@ export async function removeRecipient(
  * @internal
  */
 async function createEncrypterWithRecipients(
-  ownerCredential: WebAuthnCredential,
+  ownerCredential: WebAuthnCredential | KeypairCredential,
   recipients: RecipientInfo[]
 ): Promise<age.Encrypter> {
   const encrypter = new age.Encrypter();
-  
+
   // Add owner as first recipient
-  if (ownerCredential.type === 'passkey') {
+  if (ownerCredential.type === 'pq-keypair' || ownerCredential.type === 'x25519-keypair') {
+    // PQ and x25519: pass recipient string directly
+    encrypter.addRecipient(ownerCredential.recipient);
+  } else if (ownerCredential.type === 'passkey' || ownerCredential.type === 'security-key') {
+    // WebAuthn: use WebAuthnRecipient object
     encrypter.addRecipient(
-      new age.webauthn.WebAuthnRecipient({ 
-        identity: ownerCredential.identity 
-      })
-    );
-  } else if (ownerCredential.type === 'security-key') {
-    encrypter.addRecipient(
-      new age.webauthn.WebAuthnRecipient({ 
-        identity: ownerCredential.identity 
+      new age.webauthn.WebAuthnRecipient({
+        identity: ownerCredential.identity
       })
     );
   }
-  
+
   // Add additional recipients
   for (const recipient of recipients) {
-    if (recipient.type === 'webauthn-passkey') {
+    if (recipient.type === 'pq-hybrid' && recipient.publicKey) {
+      encrypter.addRecipient(recipient.publicKey);
+    } else if (recipient.type === 'webauthn-passkey') {
       encrypter.addRecipient(
         new age.webauthn.WebAuthnRecipient({
           identity: recipient.identity
@@ -448,7 +477,7 @@ async function createEncrypterWithRecipients(
       encrypter.addRecipient(recipient.publicKey);
     }
   }
-  
+
   return encrypter;
 }
 
@@ -457,19 +486,24 @@ async function createEncrypterWithRecipients(
  * 
  * @internal
  */
-function createDecrypterWithIdentity(credential?: WebAuthnCredential): age.Decrypter {
+function createDecrypterWithIdentity(credential?: WebAuthnCredential | KeypairCredential): age.Decrypter {
   const decrypter = new age.Decrypter();
-  
+
   if (credential) {
-    // Specific credential provided
-    decrypter.addIdentity(
-      new age.webauthn.WebAuthnIdentity({ identity: credential.identity })
-    );
+    if (credential.type === 'pq-keypair' || credential.type === 'x25519-keypair') {
+      // PQ and x25519: pass identity string directly
+      decrypter.addIdentity(credential.identity);
+    } else {
+      // WebAuthn: use WebAuthnIdentity object
+      decrypter.addIdentity(
+        new age.webauthn.WebAuthnIdentity({ identity: credential.identity })
+      );
+    }
   } else {
     // Let user select passkey from browser prompt
     decrypter.addIdentity(new age.webauthn.WebAuthnIdentity());
   }
-  
+
   return decrypter;
 }
 

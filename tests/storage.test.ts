@@ -11,9 +11,16 @@ import {
   getBundle,
   listBundles,
   deleteBundle,
-  clearAllData
+  clearAllData,
+  getSettings,
+  saveSettings,
+  storeKeypair,
+  getKeypair,
+  listKeypairs,
+  deleteKeypair
 } from '@/lib/storage/indexeddb';
 import type { WebAuthnCredential } from '@/lib/types/credential';
+import type { EncryptionSettings, StoredKeypair } from '@/lib/types/settings';
 
 const baseCredential: WebAuthnCredential = {
   credentialId: 'cred-1',
@@ -115,6 +122,96 @@ describe('IndexedDB bundle storage', () => {
 
     expect(await getBundle('bundle-2')).toBeNull();
     expect(await listBundles()).toHaveLength(0);
+  });
+});
+
+describe('IndexedDB settings storage', () => {
+  beforeEach(async () => {
+    await clearAllData();
+  });
+
+  it('returns null when no settings are saved', async () => {
+    const settings = await getSettings();
+    expect(settings).toBeNull();
+  });
+
+  it('saves and retrieves settings', async () => {
+    const settings: EncryptionSettings = {
+      algorithm: 'age-pq',
+      updatedAt: new Date().toISOString()
+    };
+
+    await saveSettings(settings);
+    const fetched = await getSettings();
+
+    expect(fetched).not.toBeNull();
+    expect(fetched?.algorithm).toBe('age-pq');
+  });
+
+  it('overwrites settings on save', async () => {
+    await saveSettings({ algorithm: 'age-pq', updatedAt: new Date().toISOString() });
+    await saveSettings({ algorithm: 'age-x25519', updatedAt: new Date().toISOString() });
+
+    const fetched = await getSettings();
+    expect(fetched?.algorithm).toBe('age-x25519');
+  });
+});
+
+describe('IndexedDB keypair storage', () => {
+  beforeEach(async () => {
+    await clearAllData();
+  });
+
+  const baseKeypair: StoredKeypair = {
+    id: 'kp-1',
+    algorithm: 'age-pq',
+    identity: 'AGE-SECRET-KEY-PQ-1TEST',
+    recipient: 'age1pq1test...',
+    label: 'Test PQ Key',
+    createdAt: new Date().toISOString()
+  };
+
+  it('stores and retrieves keypair', async () => {
+    await storeKeypair(baseKeypair);
+    const fetched = await getKeypair('kp-1');
+
+    expect(fetched).not.toBeNull();
+    expect(fetched?.algorithm).toBe('age-pq');
+    expect(fetched?.identity).toBe('AGE-SECRET-KEY-PQ-1TEST');
+    expect(fetched?.recipient).toBe('age1pq1test...');
+  });
+
+  it('lists all keypairs', async () => {
+    await storeKeypair(baseKeypair);
+    await storeKeypair({
+      ...baseKeypair,
+      id: 'kp-2',
+      algorithm: 'age-x25519',
+      identity: 'AGE-SECRET-KEY-1X',
+      recipient: 'age1x...',
+      label: 'x25519 Key'
+    });
+
+    const all = await listKeypairs();
+    expect(all).toHaveLength(2);
+  });
+
+  it('deletes keypair', async () => {
+    await storeKeypair(baseKeypair);
+    await deleteKeypair('kp-1');
+
+    const fetched = await getKeypair('kp-1');
+    expect(fetched).toBeNull();
+  });
+
+  it('clearAllData clears keypairs and settings', async () => {
+    await storeKeypair(baseKeypair);
+    await saveSettings({ algorithm: 'age-pq', updatedAt: new Date().toISOString() });
+
+    await clearAllData();
+
+    expect(await listKeypairs()).toHaveLength(0);
+    expect(await getSettings()).toBeNull();
   });
 });
 

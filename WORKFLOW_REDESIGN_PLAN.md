@@ -14,7 +14,7 @@ This document outlines the detailed implementation plan for redesigning the Doc 
 **Solution**: Remove auto-creation. Detect PRF support passively or during actual credential creation.
 
 ### Issue 2: No Support for Existing Credentials from Password Managers
-**Problem**: Users are forced to create new credentials specifically for DocProtect.
+**Problem**: Users are forced to create new credentials specifically for Rico.
 - Cannot use existing passkeys from Google, iCloud, Bitwarden, 1Password, etc.
 - Increases friction and reduces adoption
 - Doesn't leverage existing secure credential infrastructure
@@ -40,7 +40,7 @@ fileType: 'standard' | 'dpf' | null
 **Implementation**:
 - Keep existing file upload UI
 - Add step indicator/progress bar
-- Auto-detect file type (DPF vs standard)
+- Auto-detect file type (Rico vs standard)
 - Move to Section 2 after file selected
 
 ---
@@ -103,10 +103,10 @@ export async function createCredential(
 ): Promise<WebAuthnCredential | FallbackCredential>
 ```
 
-#### Path B: Decryption (DPF File)
+#### Path B: Decryption (Rico File)
 
 **UI Flow**:
-1. Display file info: "This is an encrypted DocProtect file (.dpf)"
+1. Display file info: "This is an encrypted Rico file (.rico)"
 2. Parse manifest to show:
    - Original filename
    - File size
@@ -120,7 +120,7 @@ export async function createCredential(
 
 **State Changes**:
 ```typescript
-bundleManifest: DocProtectManifest | null
+bundleManifest: RicoManifest | null
 decryptionMode: 'stored' | 'external' | null
 ```
 
@@ -137,7 +137,7 @@ decryptionMode: 'stored' | 'external' | null
 ```typescript
 // lib/crypto/bundle.ts - ENHANCE
 export async function parseBundle(file: File): Promise<{
-  manifest: DocProtectManifest;
+  manifest: RicoManifest;
   payload: Uint8Array;
   metadata: {
     fileName: string;
@@ -180,7 +180,7 @@ recipients: Array<{
 export function createManifest(options: {
   // ... existing options
   recipientEmails?: string[];
-}): DocProtectManifest
+}): RicoManifest
 ```
 
 **Skip Logic**:
@@ -197,7 +197,7 @@ export function createManifest(options: {
 How would you like to share this encrypted file?
 
 [ ] Download the bundle
-    └─ Download .dpf file directly
+    └─ Download .rico file directly
 
 [ ] Store in cloud
     └─ [ ] Google Drive
@@ -278,7 +278,7 @@ bundleMetadata: {
   bundleId: string;
   createdAt: Date;
   encryptedFile: Blob;
-  manifest: DocProtectManifest;
+  manifest: RicoManifest;
   sharingInfo: SharingInfo;
 }
 editMode: boolean
@@ -296,13 +296,13 @@ editMode: boolean
 ```typescript
 // lib/crypto/encryption.ts - NEW
 export async function reEncryptBundle(
-  existingBundle: DocProtectBundle,
+  existingBundle: RicoBundle,
   updates: {
     newRecipients?: RecipientInfo[];
     newOwnerCredential?: WebAuthnCredential;
     newPolicy?: PolicyObject;
   }
-): Promise<DocProtectBundle>
+): Promise<RicoBundle>
 ```
 
 ---
@@ -566,7 +566,7 @@ type WorkflowAction =
 ### Decryption Flow (New)
 ```
 ┌─────────────────┐
-│  Upload .dpf    │
+│  Upload .rico    │
 │  (Section 1)    │
 └────────┬────────┘
          │
@@ -832,7 +832,7 @@ None - This is a UI/UX refactor with backward compatibility.
 - [WebAuthn Spec](https://www.w3.org/TR/webauthn-2/)
 - [age Encryption Spec](https://c2sp.org/age)
 - [OpenTDF Manifest](https://opentdf.io/spec/schema/opentdf/manifest)
-- Current codebase: `/home/user/doc-protect/`
+- Current codebase: `/home/user/rico/`
 
 ---
 

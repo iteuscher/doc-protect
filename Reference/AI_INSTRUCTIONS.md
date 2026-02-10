@@ -1,6 +1,6 @@
 # Instructions for AI Coding Assistant
 
-You are helping implement DocProtect, a browser-based document encryption system.
+You are helping implement Rico, a browser-based document encryption system.
 
 ## Context Documents
 
@@ -203,7 +203,7 @@ Good:
 > 3. Add owner as recipient
 > 4. Handle multiple recipients
 > 5. Encrypt file data
-> 6. Return DocProtectBundle"
+> 6. Return RicoBundle"
 
 Bad:
 > "Write the encryption code"

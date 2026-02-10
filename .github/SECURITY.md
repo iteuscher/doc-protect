@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-DocProtect actively supports security updates for the following versions:
+Rico actively supports security updates for the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |

@@ -32,7 +32,7 @@ Error: browserContext.newPage: Unknown permission: clipboard-write
 
 **Root Cause:** The Playwright config included `permissions: ['clipboard-read', 'clipboard-write']` for all browsers, but these permissions are only supported in Chromium. Firefox and WebKit don't support them.
 
-**Solution:** Removed clipboard permissions from the config (they weren't needed since DocProtect doesn't use clipboard functionality).
+**Solution:** Removed clipboard permissions from the config (they weren't needed since Rico doesn't use clipboard functionality).
 
 ### What This Means
 
@@ -54,7 +54,7 @@ The test suite includes 5 comprehensive test files covering:
 - Progress indicators
 
 ### 2. **decryption-workflow.spec.ts** (11 tests)
-- DPF file detection
+- Rico file detection
 - Credential selection
 - Encrypt-then-decrypt cycles
 - External credential support

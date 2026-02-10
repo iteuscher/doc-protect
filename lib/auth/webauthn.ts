@@ -1,7 +1,7 @@
 /**
  * WebAuthn Credential Management
  * 
- * Handles creation and management of WebAuthn credentials for DocProtect.
+ * Handles creation and management of WebAuthn credentials for Rico.
  * Uses typage's built-in WebAuthn PRF support.
  * 
  * References:
@@ -82,8 +82,8 @@ export async function selectExistingCredential(): Promise<WebAuthnCredential | F
 
   if (!matchingCredential) {
     throw new Error(
-      'This passkey was not created by DocProtect. ' +
-      'Please select a passkey that was previously created in DocProtect, ' +
+      'This passkey was not created by Rico. ' +
+      'Please select a passkey that was previously created in Rico, ' +
       'or create a new credential instead.'
     );
   }
@@ -110,7 +110,7 @@ export async function selectExistingCredential(): Promise<WebAuthnCredential | F
  * const credential = await createCredential({
  *   userId: 'alice@company.com',
  *   userName: 'Alice',
- *   keyName: 'My DocProtect Key',
+ *   keyName: 'My Rico Key',
  *   type: 'passkey'  // or 'security-key'
  * });
  *
@@ -123,9 +123,9 @@ export async function createCredential(
   ensureBrowserEnvironment();
 
   const {
-    userId = 'user@docprotect.local',
-    userName = 'DocProtect User',
-    keyName = `DocProtect Key ${new Date().toISOString()}`,
+    userId = 'user@rico.local',
+    userName = 'Rico User',
+    keyName = `Rico Key ${new Date().toISOString()}`,
     type = 'passkey',
     forceFallback = false,
     prfSupportOverride

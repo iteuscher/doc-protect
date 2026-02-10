@@ -1,5 +1,5 @@
 /**
- * Reset Functions for DocProtect
+ * Reset Functions for Rico
  * 
  * Provides functions to clear all stored data and reset the application state.
  * Useful for testing and debugging.
@@ -9,7 +9,7 @@ import { clearAllData } from './indexeddb';
 import { clearPRFCache } from '@/lib/auth/prf-detection';
 
 /**
- * Reset all DocProtect data
+ * Reset all Rico data
  * 
  * Clears:
  * - All stored credentials

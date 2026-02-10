@@ -121,8 +121,8 @@ describe('WebAuthn credential management', () => {
       credentialId: 'fallback-1',
       type: 'fallback-pbkdf2',
       keyName: 'Fallback',
-      userId: 'user@docprotect.local',
-      userName: 'DocProtect User',
+      userId: 'user@rico.local',
+      userName: 'Rico User',
       prfEnabled: false,
       createdAt: new Date().toISOString()
     });
@@ -256,7 +256,7 @@ describe('selectExistingCredential', () => {
       }
     });
 
-    await expect(selectExistingCredential()).rejects.toThrow('not created by DocProtect');
+    await expect(selectExistingCredential()).rejects.toThrow('not created by Rico');
   });
 });
 

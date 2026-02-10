@@ -30,8 +30,8 @@ test.describe('UI and UX Features', () => {
   });
 
   test.describe('Header and Branding', () => {
-    test('should display DocProtect branding', async () => {
-      await expect(page.locator('text=DocProtect')).toBeVisible();
+    test('should display Rico branding', async () => {
+      await expect(page.locator('text=Rico')).toBeVisible();
       await expect(page.locator('text=Passwordless Document Encryption')).toBeVisible();
     });
 
@@ -59,15 +59,15 @@ test.describe('UI and UX Features', () => {
       await expect(page.locator('text=Ready to encrypt: status-test.txt')).toBeVisible();
     });
 
-    test('should show different status for DPF files', async () => {
+    test('should show different status for Rico files', async () => {
       const fileInput = page.locator('input[type="file"]');
       await fileInput.setInputFiles({
-        name: 'test.dpf',
+        name: 'test.rico',
         mimeType: 'application/zip',
-        buffer: Buffer.from('mock dpf'),
+        buffer: Buffer.from('mock rico'),
       });
 
-      await expect(page.locator('text=Ready to decrypt: test.dpf')).toBeVisible();
+      await expect(page.locator('text=Ready to decrypt: test.rico')).toBeVisible();
     });
 
     test('should display error messages in red', async () => {
@@ -100,7 +100,7 @@ test.describe('UI and UX Features', () => {
     });
 
     test('should show file type hint', async () => {
-      await expect(page.locator('text=.dpf files will be decrypted • Other files will be encrypted')).toBeVisible();
+      await expect(page.locator('text=.rico files will be decrypted • Other files will be encrypted')).toBeVisible();
     });
 
     test('should show Choose File button', async () => {
@@ -255,7 +255,7 @@ test.describe('UI and UX Features', () => {
 
       // Download option
       await expect(page.locator('text=Download Bundle')).toBeVisible();
-      await expect(page.locator('text=Download the .dpf file to share directly')).toBeVisible();
+      await expect(page.locator('text=Download the .rico file to share directly')).toBeVisible();
 
       // Cloud storage option
       await expect(page.locator('text=Store in Cloud')).toBeVisible();
@@ -410,7 +410,7 @@ test.describe('UI and UX Features', () => {
       await expect(page.locator(`text=Ready to encrypt: ${fileName}`)).toBeVisible();
     });
 
-    test('should show different status for standard vs DPF files', async () => {
+    test('should show different status for standard vs Rico files', async () => {
       const fileInput = page.locator('input[type="file"]');
 
       // Standard file
@@ -425,14 +425,14 @@ test.describe('UI and UX Features', () => {
       // Start over
       await page.locator('text=← Back to File Upload').click();
 
-      // DPF file
+      // Rico file
       await fileInput.setInputFiles({
-        name: 'encrypted.dpf',
+        name: 'encrypted.rico',
         mimeType: 'application/zip',
-        buffer: Buffer.from('dpf'),
+        buffer: Buffer.from('rico'),
       });
 
-      await expect(page.locator('text=Ready to decrypt: encrypted.dpf')).toBeVisible();
+      await expect(page.locator('text=Ready to decrypt: encrypted.rico')).toBeVisible();
     });
   });
 });

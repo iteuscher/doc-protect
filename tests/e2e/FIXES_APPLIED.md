@@ -23,7 +23,7 @@ Clipboard permissions (`clipboard-read`, `clipboard-write`) are Chromium-only an
 Caused majority of test failures in Firefox (~176 tests) and WebKit (~88 tests).
 
 **Solution:**
-Removed clipboard permissions from `playwright.config.ts` since DocProtect doesn't use clipboard functionality.
+Removed clipboard permissions from `playwright.config.ts` since Rico doesn't use clipboard functionality.
 
 **Files Changed:**
 - `playwright.config.ts`
@@ -335,7 +335,7 @@ page.locator(`text=${credentialName}`).first()
 - [x] Document browser installation
 - [x] Fix "highlight current step" strict mode violation
 - [x] Fix "show clear action labels" conditional visibility issue
-- [x] Remove DocProtect title check (page title changed)
+- [x] Remove Rico title check (page title changed)
 - [x] Fix CDP availability issue (limit WebAuthn tests to Chromium)
 - [x] Fix dark theme test element selection
 - [x] Resolve all strict mode violations (17 fixes across test suites)
@@ -466,7 +466,7 @@ await expect(page.locator('div')).toBeVisible();
 5. `docs: update test analysis with clipboard permissions root cause` (0704385)
 6. `fix: resolve strict mode violations in progress indicator tests` (5e84381)
 7. `fix: resolve remaining strict mode violations and conditional visibility issues` (74d0f49)
-8. `fix: remove DocProtect title check as page title has changed` (583d024)
+8. `fix: remove Rico title check as page title has changed` (583d024)
 9. `fix: limit WebAuthn tests to Chromium only (CDP not available in Firefox/WebKit)` (c881661)
 10. `fix: update dark theme test to check correct elements` (24c78ce)
 11. `fix: resolve strict mode violations and browser-specific test failures` (08cbd40)

@@ -114,8 +114,8 @@ test.describe('Encryption Workflow', () => {
     const download = await downloadPromise;
 
     // Verify download
-    expect(download.suggestedFilename()).toMatch(/\.dpf$/);
-    await expect(page.locator('text=DPF file Created Successfully!')).toBeVisible();
+    expect(download.suggestedFilename()).toMatch(/\.rico$/);
+    await expect(page.locator('text=Rico file Created Successfully!')).toBeVisible();
     await expect(page.locator('text=Encryption Complete!')).toBeVisible();
   });
 

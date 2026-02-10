@@ -75,15 +75,15 @@ jobs:
       - name: Build Docker image
         if: env.AWS_ECR_REGISTRY != ''
         run: |
-          docker build -t ${{ secrets.AWS_ECR_REGISTRY }}/doc-protect:${{ github.sha }} .
-          docker tag ${{ secrets.AWS_ECR_REGISTRY }}/doc-protect:${{ github.sha }} ${{ secrets.AWS_ECR_REGISTRY }}/doc-protect:latest
+          docker build -t ${{ secrets.AWS_ECR_REGISTRY }}/rico:${{ github.sha }} .
+          docker tag ${{ secrets.AWS_ECR_REGISTRY }}/rico:${{ github.sha }} ${{ secrets.AWS_ECR_REGISTRY }}/rico:latest
 
       - name: Push to ECR
         if: env.AWS_ECR_REGISTRY != ''
         run: |
           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ECR_REGISTRY }}
-          docker push ${{ secrets.AWS_ECR_REGISTRY }}/doc-protect:${{ github.sha }}
-          docker push ${{ secrets.AWS_ECR_REGISTRY }}/doc-protect:latest
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/rico:${{ github.sha }}
+          docker push ${{ secrets.AWS_ECR_REGISTRY }}/rico:latest
 
       - name: Update ECS service
         if: env.AWS_ECS_CLUSTER != ''
@@ -143,21 +143,21 @@ jobs:
       - name: Build Docker image
         if: env.GCP_ARTIFACT_REGISTRY != ''
         run: |
-          docker build -t ${{ secrets.GCP_ARTIFACT_REGISTRY }}/doc-protect:${{ github.sha }} .
-          docker tag ${{ secrets.GCP_ARTIFACT_REGISTRY }}/doc-protect:${{ github.sha }} ${{ secrets.GCP_ARTIFACT_REGISTRY }}/doc-protect:latest
+          docker build -t ${{ secrets.GCP_ARTIFACT_REGISTRY }}/rico:${{ github.sha }} .
+          docker tag ${{ secrets.GCP_ARTIFACT_REGISTRY }}/rico:${{ github.sha }} ${{ secrets.GCP_ARTIFACT_REGISTRY }}/rico:latest
 
       - name: Push to Artifact Registry
         if: env.GCP_ARTIFACT_REGISTRY != ''
         run: |
-          docker push ${{ secrets.GCP_ARTIFACT_REGISTRY }}/doc-protect:${{ github.sha }}
-          docker push ${{ secrets.GCP_ARTIFACT_REGISTRY }}/doc-protect:latest
+          docker push ${{ secrets.GCP_ARTIFACT_REGISTRY }}/rico:${{ github.sha }}
+          docker push ${{ secrets.GCP_ARTIFACT_REGISTRY }}/rico:latest
 
       - name: Deploy to Cloud Run
         if: env.GCP_CLOUD_RUN_SERVICE != ''
         id: deploy
         run: |
           gcloud run deploy ${{ secrets.GCP_CLOUD_RUN_SERVICE }} \
-            --image ${{ secrets.GCP_ARTIFACT_REGISTRY }}/doc-protect:${{ github.sha }} \
+            --image ${{ secrets.GCP_ARTIFACT_REGISTRY }}/rico:${{ github.sha }} \
             --region ${{ secrets.GCP_REGION }} \
             --platform managed \
             --allow-unauthenticated

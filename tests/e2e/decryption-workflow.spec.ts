@@ -70,11 +70,11 @@ test.describe('Decryption Workflow', () => {
 
   test('should detect Rico file on upload', async () => {
     // Create a mock Rico file (ZIP file)
-    const dpfFileName = 'test-file.rico';
+    const ricoFileName = 'test-file.rico';
 
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles({
-      name: dpfFileName,
+      name: ricoFileName,
       mimeType: 'application/zip',
       buffer: Buffer.from('mock rico content'),
     });
@@ -83,16 +83,16 @@ test.describe('Decryption Workflow', () => {
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
     // Status should show Rico detection
-    await expect(page.locator(`text=Ready to decrypt: ${dpfFileName}`)).toBeVisible();
+    await expect(page.locator(`text=Ready to decrypt: ${ricoFileName}`)).toBeVisible();
   });
 
   test('should show credential selection options for decryption', async () => {
     // Upload a Rico file
-    const dpfFileName = 'encrypted.rico';
+    const ricoFileName = 'encrypted.rico';
 
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles({
-      name: dpfFileName,
+      name: ricoFileName,
       mimeType: 'application/zip',
       buffer: Buffer.from('mock rico'),
     });
@@ -108,11 +108,11 @@ test.describe('Decryption Workflow', () => {
   });
 
   test('should allow external credential for decryption', async () => {
-    const dpfFileName = 'encrypted.rico';
+    const ricoFileName = 'encrypted.rico';
 
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles({
-      name: dpfFileName,
+      name: ricoFileName,
       mimeType: 'application/zip',
       buffer: Buffer.from('mock rico'),
     });
@@ -138,8 +138,8 @@ test.describe('Decryption Workflow', () => {
     const download = await createEncryptedFile(originalFileName, originalContent, credentialName);
 
     // Save the Rico file
-    const dpfPath = await download.path();
-    expect(dpfPath).toBeTruthy();
+    const ricoPath = await download.path();
+    expect(ricoPath).toBeTruthy();
 
     // Start over for decryption
     await page.locator('button:has-text("Encrypt Another File")').click();
@@ -148,7 +148,7 @@ test.describe('Decryption Workflow', () => {
     // === DECRYPTION PHASE ===
     // Upload the Rico file we just created
     const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles(dpfPath!);
+    await fileInput.setInputFiles(ricoPath!);
 
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
@@ -221,16 +221,16 @@ test.describe('Decryption Workflow', () => {
   });
 
   test('should display decryption progress in status', async () => {
-    const dpfFileName = 'status-test.rico';
+    const ricoFileName = 'status-test.rico';
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles({
-      name: dpfFileName,
+      name: ricoFileName,
       mimeType: 'application/zip',
       buffer: Buffer.from('mock rico'),
     });
 
     // Check initial status
-    await expect(page.locator(`text=Ready to decrypt: ${dpfFileName}`)).toBeVisible();
+    await expect(page.locator(`text=Ready to decrypt: ${ricoFileName}`)).toBeVisible();
 
     // Select external credential
     await page.locator('button:has-text("Select from Google, iCloud")').click();
@@ -262,12 +262,12 @@ test.describe('Decryption Workflow', () => {
     const credentialName = 'Another Test Credential';
 
     const download = await createEncryptedFile(fileName, fileContent, credentialName);
-    const dpfPath = await download.path();
+    const ricoPath = await download.path();
 
     // Start over and decrypt
     await page.locator('button:has-text("Encrypt Another File")').click();
     const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles(dpfPath!);
+    await fileInput.setInputFiles(ricoPath!);
 
     // Wait for identity screen
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();

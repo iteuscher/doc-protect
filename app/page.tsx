@@ -20,6 +20,7 @@ import type { EncryptionAlgorithm, EncryptionSettings, StoredKeypair } from '@/l
 import { DEFAULT_SETTINGS } from '@/lib/types/settings';
 import { keypairToCredential } from '@/lib/types/encryption-credential';
 import { getCachedPRFSupport, getPlatformPRFInfo } from '@/lib/auth/prf-detection';
+import { uploadBundle } from '@/lib/api/client';
 import {
   createCredential,
   listUserCredentials,
@@ -82,6 +83,17 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showDetailedInfo, setShowDetailedInfo] = useState(false);
   const [showExistingOptions, setShowExistingOptions] = useState(false);
+
+  // Link sharing state
+  const [shareableLink, setShareableLink] = useState<string | null>(null);
+  const [isLinkUploading, setIsLinkUploading] = useState(false);
+
+  // Bundle recipient download state (when visiting with ?bundle=id)
+  const [bundleDownload, setBundleDownload] = useState<{
+    id: string;
+    downloadUrl: string;
+    fileName: string;
+  } | null>(null);
 
   // Settings state
   const [showSettings, setShowSettings] = useState(false);
@@ -151,6 +163,32 @@ export default function Home() {
       }
     };
   }, [workflow.decryptedData]);
+
+  // Handle ?bundle=id query param — fetch the bundle and offer the .rico download
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const bundleId = params.get('bundle');
+    if (!bundleId) return;
+
+    async function fetchBundleForDownload() {
+      try {
+        const { fetchBundleDetails } = await import('@/lib/api/client');
+        const data = await fetchBundleDetails(bundleId as string);
+        if (data?.downloadUrl) {
+          setBundleDownload({
+            id: bundleId as string,
+            downloadUrl: data.downloadUrl,
+            fileName: data.bundle?.file_name ?? 'file.rico',
+          });
+        }
+      } catch {
+        // Silently ignore — the bundle may not exist or the link may be expired
+      }
+    }
+
+    fetchBundleForDownload();
+  }, []);
 
   // ===== SECTION 1: FILE UPLOAD =====
   const handleFileUpload = useCallback((file: File) => {
@@ -518,12 +556,47 @@ export default function Home() {
     setStatusMessage('Rico file created successfully!');
   };
 
-  const handleLinkSharing = () => {
-    setWorkflow(prev => ({
-      ...prev,
-      sharingMode: 'link'
-    }));
-    setStatusMessage('Link sharing (Supabase/S3) - Coming soon!');
+  const handleLinkSharing = async () => {
+    if (!workflow.encryptedBundle) return;
+
+    setIsLinkUploading(true);
+    setErrorMessage(null);
+    setStatusMessage('Uploading encrypted file...');
+
+    try {
+      const bundle = workflow.encryptedBundle;
+      const ownerRecipient = bundle.manifest.encryptionInfo.recipients.find(
+        r => r.role === 'owner'
+      );
+      const ownerIdentity =
+        ownerRecipient?.identity ?? ownerRecipient?.publicKey ?? bundle.bundleId;
+
+      const fileName = `${workflow.uploadedFile?.name || 'file'}.rico`;
+
+      const result = await uploadBundle({
+        ownerIdentity,
+        manifest: bundle.manifest,
+        bundleBlob: bundle.blob,
+        fileName,
+      });
+
+      const bundleId = result.bundle.id;
+      const link = `${window.location.origin}?bundle=${bundleId}`;
+
+      setShareableLink(link);
+      setWorkflow(prev => ({
+        ...prev,
+        step: 'complete',
+        sharingMode: 'link',
+      }));
+      setStatusMessage('Rico file uploaded and link ready to share!');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Upload failed';
+      setErrorMessage(message);
+      setStatusMessage('Upload failed');
+    } finally {
+      setIsLinkUploading(false);
+    }
   };
 
   const handleCloudStorage = () => {
@@ -823,6 +896,31 @@ export default function Home() {
             );
           })()}
         </div>
+
+        {/* SHARED BUNDLE DOWNLOAD BANNER */}
+        {bundleDownload && workflow.step === 'file-upload' && (
+          <section className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-6">
+            <h2 className="text-lg font-semibold text-white mb-2">Shared Encrypted File</h2>
+            <p className="text-sm text-slate-300 mb-4">
+              Someone shared an encrypted file with you. Download it, then upload it below to decrypt.
+            </p>
+            <div className="flex items-center gap-3">
+              <a
+                href={bundleDownload.downloadUrl}
+                download={bundleDownload.fileName}
+                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-purple-500"
+              >
+                Download {bundleDownload.fileName}
+              </a>
+              <button
+                onClick={() => setBundleDownload(null)}
+                className="text-xs text-slate-400 hover:text-slate-300"
+              >
+                Dismiss
+              </button>
+            </div>
+          </section>
+        )}
 
         {/* FILE UPLOAD */}
         {workflow.step === 'file-upload' && (
@@ -1212,19 +1310,26 @@ export default function Home() {
                 {/* Link Sharing */}
                 <button
                   onClick={handleLinkSharing}
-                  disabled
+                  disabled={isLinkUploading}
                   className="w-full rounded-lg border border-purple-500/30 bg-purple-500/5 p-4 text-left transition hover:bg-purple-500/10 disabled:opacity-50"
                 >
                   <div className="flex items-start gap-3">
                     <div className="rounded-lg bg-purple-500/20 p-2">
-                      <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                      </svg>
+                      {isLinkUploading ? (
+                        <svg className="w-5 h-5 text-purple-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-purple-200">Link Sharing</p>
                       <p className="text-xs text-slate-400 mt-1">
-                        Upload to Supabase/S3 and get a shareable link (Coming soon)
+                        {isLinkUploading ? 'Uploading...' : 'Upload and get a shareable link'}
                       </p>
                     </div>
                   </div>
@@ -1328,11 +1433,41 @@ export default function Home() {
                 Encryption Complete!
               </h2>
 
-              <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-4 mb-6">
-                <p className="text-sm text-emerald-200">
-                  ✅ Your Rico file has been created and downloaded successfully.
-                </p>
-              </div>
+              {workflow.sharingMode === 'link' && shareableLink ? (
+                <>
+                  <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-4 mb-6">
+                    <p className="text-sm text-emerald-200">
+                      ✅ Your Rico file has been uploaded. Share the link below.
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4 mb-4">
+                    <p className="text-xs text-slate-400 mb-2">Shareable link</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={shareableLink}
+                        className="flex-1 rounded bg-slate-800 px-3 py-2 text-xs text-slate-200 font-mono truncate"
+                      />
+                      <button
+                        onClick={() => navigator.clipboard.writeText(shareableLink)}
+                        className="shrink-0 rounded bg-purple-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-purple-500"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">
+                      Recipients can open this link to download the encrypted file.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-4 mb-6">
+                  <p className="text-sm text-emerald-200">
+                    ✅ Your Rico file has been created and downloaded successfully.
+                  </p>
+                </div>
+              )}
 
               <p className="text-sm text-slate-300 mb-4">
                 What would you like to do next?

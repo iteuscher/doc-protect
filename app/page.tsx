@@ -858,13 +858,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Note about future feature */}
-              <div className="rounded-lg bg-blue-500/5 border border-blue-500/20 p-3 mb-4">
-                <p className="text-xs text-blue-200">
-                  📝 Note: Recipient encryption is coming soon. For now, recipients are stored in the manifest for future implementation.
-                </p>
-              </div>
-
               {/* Navigation */}
               <div className="flex gap-2">
                 {workflow.recipients.length === 0 ? (

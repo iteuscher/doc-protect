@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { demoBundleStore } from '@/lib/demo/bundle-store';
 
 export const runtime = 'nodejs';
 
@@ -8,13 +9,43 @@ const SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY;
 const SUPABASE_BUNDLE_BUCKET = process.env.SUPABASE_BUNDLE_BUCKET ?? 'bundles';
 
+const isDemoMode = !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY;
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = getSupabaseClient();
     const params = await context.params;
+
+    if (isDemoMode) {
+      const bundle = demoBundleStore.get(params.id);
+      if (!bundle) {
+        return NextResponse.json({ error: 'Bundle not found' }, { status: 404 });
+      }
+
+      // Increment download counter
+      demoBundleStore.set(params.id, { ...bundle, downloads: bundle.downloads + 1 });
+
+      // Point the client to our local data endpoint instead of a Supabase signed URL
+      const downloadUrl = new URL(`/api/bundles/${params.id}/data`, request.url).toString();
+
+      return NextResponse.json({
+        bundle: {
+          id: bundle.id,
+          owner_identity: bundle.owner_identity,
+          file_name: bundle.file_name,
+          mime_type: bundle.mime_type,
+          encrypted_size: bundle.encrypted_size,
+          created_at: bundle.created_at,
+          manifest: bundle.manifest,
+        },
+        downloadUrl,
+        demo: true,
+      });
+    }
+
+    const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
       .from('bundles')
@@ -75,4 +106,3 @@ async function createSignedDownloadUrl(
 
   return data?.signedUrl ?? null;
 }
-

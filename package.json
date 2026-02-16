@@ -30,7 +30,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "fake-indexeddb": "^6.0.0",
-    "jsdom": "^27.4.0",
+    "jsdom": "^28.1.0",
     "tailwindcss": "^4",
     "typescript": "5.9.3",
     "vitest": "^4.0.18"

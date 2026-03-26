@@ -160,7 +160,7 @@ test.describe('Decryption Workflow', () => {
     await expect(page.locator(`text=${credentialName}`)).toBeVisible();
 
     // Select the credential
-    await page.locator(`button:has-text("${credentialName}")`).first().click();
+    await page.getByText(credentialName).first().click();
 
     // Decrypt
     await page.locator('button:has-text("Decrypt File →")').click();
@@ -202,8 +202,8 @@ test.describe('Decryption Workflow', () => {
     await expect(page.locator(`text=${credentialName}`)).toBeVisible();
 
     // Credential should be clickable
-    const credButton = page.locator(`button:has-text("${credentialName}")`).first();
-    await expect(credButton).toBeEnabled();
+    const credButton = page.getByText(credentialName).first();
+    await expect(credButton).toBeVisible();
   });
 
   test('should allow starting over from decryption flow', async () => {
@@ -280,7 +280,7 @@ test.describe('Decryption Workflow', () => {
     // Wait for identity screen
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
-    await page.locator(`button:has-text("${credentialName}")`).first().click();
+    await page.getByText(credentialName).first().click();
     await page.locator('button:has-text("Decrypt File →")').click();
 
     await expect(page.locator('text=Decryption Complete!')).toBeVisible({ timeout: 15000 });

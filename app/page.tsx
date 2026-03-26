@@ -133,7 +133,6 @@ interface PasskeyProviderInfo {
 
 function getPasskeyProviderInfo(credential: { keyName: string; type: string; metadata?: { userAgent?: string; backupEligible?: boolean; backupState?: boolean } }): PasskeyProviderInfo {
   const name = (credential.keyName || '').toLowerCase();
-  const ua = ((credential.metadata?.userAgent) || '').toLowerCase();
   const backupEligible = credential.metadata?.backupEligible ?? null;
 
   if (name.includes('icloud') || name.includes('keychain') || (name.includes('apple') && !name.includes('windows'))) {
@@ -154,26 +153,12 @@ function getPasskeyProviderInfo(credential: { keyName: string; type: string; met
   if (name.includes('windows hello') || name.includes('windows')) {
     return { iconEl: <WindowsIcon />, providerName: 'Windows Hello', synced: backupEligible ?? false };
   }
-  // Fall back to user agent detection
-  if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('crios')) {
-    // iOS/iPadOS — always iCloud Keychain regardless of browser
-    return { iconEl: <AppleIcon />, providerName: 'iCloud Keychain', synced: backupEligible ?? true };
-  }
-  if (ua.includes('mac os x') || ua.includes('macintosh')) {
-    // macOS — Chrome/Firefox/Safari all use the platform authenticator = iCloud Keychain
-    return { iconEl: <AppleIcon />, providerName: 'iCloud Keychain', synced: backupEligible ?? true };
-  }
-  if (ua.includes('android')) {
-    return { iconEl: <GooglePMIcon />, providerName: 'Google Password Manager', synced: backupEligible ?? true };
-  }
-  if (ua.includes('windows nt') && !ua.includes('android')) {
-    return { iconEl: <WindowsIcon />, providerName: 'Windows Hello', synced: backupEligible ?? false };
-  }
 
   if (credential.type === 'fallback-pbkdf2') {
     return { iconEl: <PasskeyKeyIcon />, providerName: 'Password-based', synced: false };
   }
 
+  // Cannot reliably detect provider without AAGUID — show generic icon
   return { iconEl: <PasskeyKeyIcon />, providerName: 'Passkey', synced: backupEligible };
 }
 
@@ -293,7 +278,7 @@ function CredentialCard({
         <div className="flex items-center gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
           <button
             type="button"
-            title="Rename"
+            title="Rename (updates display name in Rico only — your password manager keeps the original name)"
             onClick={handleEditClick}
             className="p-1.5 rounded text-slate-500 hover:text-slate-300 hover:bg-white/10 transition"
           >

@@ -13,13 +13,13 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.46.1",
+    "@supabase/supabase-js": "^2.95.3",
     "age-encryption": "^0.3.0",
     "jszip": "^3.10.1",
     "localforage": "^1.10.0",
     "next": "16.2.1",
-    "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
@@ -27,12 +27,12 @@
     "@types/node": "^25",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.1.6",
+    "eslint": "^10",
+    "eslint-config-next": "16.2.1",
     "fake-indexeddb": "^6.0.0",
     "jsdom": "^28.1.0",
     "tailwindcss": "^4",
     "typescript": "5.9.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.1"
   }
 }

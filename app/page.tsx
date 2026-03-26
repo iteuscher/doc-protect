@@ -1000,7 +1000,7 @@ export default function Home() {
               </div>
               <div>
                 <p className="text-lg font-medium text-white mb-2">Upload a File to Encrypt or Decrypt</p>
-                <p className="text-sm text-slate-400">Drag & drop or click to select any file — or a <span className="text-emerald-400">.rico</span> file to decrypt</p>
+                <p className="text-sm text-slate-400">Drag & drop or click to upload any file. A <span className="text-emerald-400">.rico</span> file will decrypt.</p>
               </div>
               <div className="rounded-full bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400">
                 Choose File
@@ -1133,7 +1133,7 @@ export default function Home() {
                               <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
                                 <p className="text-sm font-medium text-purple-200 mb-3">
                                   Use Password Manager
-                                  <InfoTooltip text="Opens your system's passkey picker (iCloud Keychain, Google Password Manager, Bitwarden, 1Password, etc.) — no locally stored credential needed." />
+                                  <InfoTooltip text="Use a passkey already saved in iCloud Keychain, Google Password Manager, Bitwarden, 1Password, etc. Choose this if you previously created a .rico passkey and want to reuse it." />
                                 </p>
                                 <button
                                   onClick={handleUseExternalCredential}
@@ -1201,7 +1201,7 @@ export default function Home() {
                   <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
                     <p className="text-sm font-medium text-purple-200 mb-3">
                       Use Password Manager
-                      <InfoTooltip text="Opens your system's passkey picker (iCloud Keychain, Google Password Manager, Bitwarden, 1Password, etc.) — the credential doesn't need to be stored on this device." />
+                      <InfoTooltip text="Opens your system's passkey picker (iCloud Keychain, Google Password Manager, Bitwarden, 1Password, etc.). The credential doesn't need to be stored on this device." />
                     </p>
                     <button
                       onClick={handleUseExternalCredential}

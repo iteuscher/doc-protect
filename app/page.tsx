@@ -114,6 +114,7 @@ export default function Home() {
   // Cloud (Google Drive simulation) state
   const [cloudLink, setCloudLink] = useState<string | null>(null);
   const [isCloudUploading, setIsCloudUploading] = useState(false);
+  const [copiedLink, setCopiedLink] = useState<'shareable' | 'cloud' | null>(null);
 
   // Bundle recipient download state (when visiting with ?bundle=id)
   const [bundleDownload, setBundleDownload] = useState<{
@@ -1525,10 +1526,10 @@ export default function Home() {
                         className="flex-1 rounded bg-slate-800 px-3 py-2 text-xs text-slate-200 font-mono truncate"
                       />
                       <button
-                        onClick={() => navigator.clipboard.writeText(shareableLink)}
+                        onClick={() => { navigator.clipboard.writeText(shareableLink); setCopiedLink('shareable'); setTimeout(() => setCopiedLink(null), 2000); }}
                         className="shrink-0 rounded bg-purple-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-purple-500"
                       >
-                        Copy
+                        {copiedLink === 'shareable' ? 'Copied!' : 'Copy'}
                       </button>
                     </div>
                     <p className="text-xs text-slate-500 mt-2">
@@ -1553,10 +1554,10 @@ export default function Home() {
                         className="flex-1 rounded bg-slate-800 px-3 py-2 text-xs text-slate-200 font-mono truncate"
                       />
                       <button
-                        onClick={() => navigator.clipboard.writeText(cloudLink)}
+                        onClick={() => { navigator.clipboard.writeText(cloudLink); setCopiedLink('cloud'); setTimeout(() => setCopiedLink(null), 2000); }}
                         className="shrink-0 rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500"
                       >
-                        Copy
+                        {copiedLink === 'cloud' ? 'Copied!' : 'Copy'}
                       </button>
                     </div>
                     <p className="text-xs text-slate-500 mt-2">

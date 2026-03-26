@@ -1,9 +1,9 @@
-# Rico
+# Rico: Passwordless File Encryption
 
-[![CI](https://github.com/iteuscher/rico/actions/workflows/ci.yml/badge.svg)](https://github.com/iteuscher/rico/actions/workflows/ci.yml)
-[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025e8c?logo=dependabot)](https://github.com/iteuscher/rico/security/dependabot)
+[![CI](https://github.com/iteuscher/doc-protect/actions/workflows/ci.yml/badge.svg)](https://github.com/iteuscher/doc-protect/actions/workflows/ci.yml)
+[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025e8c?logo=dependabot)](https://github.com/iteuscher/doc-protect/security/dependabot)
 
-**Production**: [www.rico.rocks](https://www.rico.rocks)
+## [www.rico.rocks](https://www.rico.rocks)
 
 ## Table of Contents
 - [Overview](#overview)

@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Download } from '@playwright/test';
+import { readFile } from 'fs/promises';
 
 /**
  * E2E tests for the decryption workflow
@@ -56,7 +57,7 @@ test.describe('Decryption Workflow', () => {
 
     // Skip recipients
     await page.locator('button:has-text("Skip Recipients")').click();
-    await expect(page.locator('text=Share the Encrypted File')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Share the Encrypted File' })).toBeVisible();
 
     // Download bundle
     const downloadPromise = page.waitForEvent('download');
@@ -117,7 +118,7 @@ test.describe('Decryption Workflow', () => {
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
     // Select external credential
-    await page.locator('button:has-text("Select from Google, iCloud")').click();
+    await page.locator('button:has-text("Google, iCloud, Bitwarden")').click();
 
     // Should show decrypt button
     await expect(page.locator('text=Decrypt File →')).toBeVisible();
@@ -139,18 +140,23 @@ test.describe('Decryption Workflow', () => {
     expect(ricoPath).toBeTruthy();
 
     // Start over for decryption
-    await page.locator('button:has-text("Encrypt Another File")').click();
+    await page.locator('button:has-text("Encrypt / Decrypt a File")').click();
     await expect(page.locator('text=Upload a File').first()).toBeVisible();
 
     // === DECRYPTION PHASE ===
-    // Upload the Rico file we just created
+    // Upload the Rico file we just created (with correct .rico extension)
     const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles(ricoPath!);
+    const ricoBuffer = await readFile(ricoPath!);
+    await fileInput.setInputFiles({
+      name: download.suggestedFilename(),
+      mimeType: 'application/zip',
+      buffer: ricoBuffer,
+    });
 
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
     // Should see the credential we created
-    await expect(page.locator('text=Stored Credentials')).toBeVisible();
+    await expect(page.locator('text=Stored Credentials').first()).toBeVisible();
     await expect(page.locator(`text=${credentialName}`)).toBeVisible();
 
     // Select the credential
@@ -161,7 +167,7 @@ test.describe('Decryption Workflow', () => {
 
     // Should show decryption complete
     await expect(page.locator('text=Decryption Complete!')).toBeVisible({ timeout: 15000 });
-    await expect(page.locator('text=File decrypted successfully')).toBeVisible();
+    await expect(page.locator('text=File decrypted successfully').first()).toBeVisible();
 
     // Should have download link
     await expect(page.locator(`text=${originalFileName}`)).toBeVisible();
@@ -177,7 +183,7 @@ test.describe('Decryption Workflow', () => {
     await createEncryptedFile(fileName, fileContent, credentialName);
 
     // Start over
-    await page.locator('button:has-text("Encrypt Another File")').click();
+    await page.locator('button:has-text("Encrypt / Decrypt a File")').click();
 
     // Upload a Rico file
     const fileInput = page.locator('input[type="file"]');
@@ -190,7 +196,7 @@ test.describe('Decryption Workflow', () => {
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
 
     // Should see stored credentials section
-    await expect(page.locator('text=Stored Credentials')).toBeVisible();
+    await expect(page.locator('text=Stored Credentials').first()).toBeVisible();
 
     // Should see the credential we created
     await expect(page.locator(`text=${credentialName}`)).toBeVisible();
@@ -230,7 +236,7 @@ test.describe('Decryption Workflow', () => {
     await expect(page.locator('text=Ready to decrypt')).toBeVisible();
 
     // Select external credential
-    await page.locator('button:has-text("Select from Google, iCloud")').click();
+    await page.locator('button:has-text("Google, iCloud, Bitwarden")').click();
 
     // Status should update
     await expect(page.locator('text=password manager').first()).toBeVisible();
@@ -262,9 +268,14 @@ test.describe('Decryption Workflow', () => {
     const ricoPath = await download.path();
 
     // Start over and decrypt
-    await page.locator('button:has-text("Encrypt Another File")').click();
+    await page.locator('button:has-text("Encrypt / Decrypt a File")').click();
     const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles(ricoPath!);
+    const ricoBuffer = await readFile(ricoPath!);
+    await fileInput.setInputFiles({
+      name: download.suggestedFilename(),
+      mimeType: 'application/zip',
+      buffer: ricoBuffer,
+    });
 
     // Wait for identity screen
     await expect(page.locator('text=Verify Your Identity')).toBeVisible();
@@ -275,10 +286,10 @@ test.describe('Decryption Workflow', () => {
     await expect(page.locator('text=Decryption Complete!')).toBeVisible({ timeout: 15000 });
 
     // Click "Decrypt Another File"
-    await page.locator('button:has-text("Decrypt Another File")').click();
+    await page.locator('button:has-text("Encrypt / Decrypt a File")').click();
 
     // Should be back at upload
-    await expect(page.locator('text=Upload a File')).toBeVisible();
+    await expect(page.locator('text=Upload a File to Encrypt or Decrypt')).toBeVisible();
     await expect(page.locator('text=Ready to upload a file')).toBeVisible();
   });
 
@@ -291,7 +302,7 @@ test.describe('Decryption Workflow', () => {
     await createEncryptedFile(fileName, fileContent, credentialName);
 
     // Start over and go to decryption
-    await page.locator('button:has-text("Encrypt Another File")').click();
+    await page.locator('button:has-text("Encrypt / Decrypt a File")').click();
 
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles({
@@ -304,7 +315,7 @@ test.describe('Decryption Workflow', () => {
     await page.locator('button:has-text("Technical Info")').click();
 
     // Should show stored credentials
-    await expect(page.locator('text=Stored Credentials')).toBeVisible();
+    await expect(page.locator('text=Stored Credentials').first()).toBeVisible();
     await expect(page.locator(`text=${credentialName}`).first()).toBeVisible();
   });
 
@@ -323,7 +334,7 @@ test.describe('Decryption Workflow', () => {
     await expect(decryptButton).not.toBeVisible();
 
     // After selecting external credential, button should appear
-    await page.locator('button:has-text("Select from Google, iCloud")').click();
+    await page.locator('button:has-text("Google, iCloud, Bitwarden")').click();
     await expect(decryptButton).toBeVisible();
   });
 });

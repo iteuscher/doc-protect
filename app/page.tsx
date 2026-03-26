@@ -154,10 +154,6 @@ function getPasskeyProviderInfo(credential: { keyName: string; type: string; met
     return { iconEl: <WindowsIcon />, providerName: 'Windows Hello', synced: backupEligible ?? false };
   }
 
-  if (credential.type === 'fallback-pbkdf2') {
-    return { iconEl: <PasskeyKeyIcon />, providerName: 'Password-based', synced: false };
-  }
-
   // Cannot reliably detect provider without AAGUID — show generic icon
   return { iconEl: <PasskeyKeyIcon />, providerName: 'Passkey', synced: backupEligible };
 }

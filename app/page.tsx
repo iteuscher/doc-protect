@@ -169,20 +169,15 @@ function CredentialCard({
   isSelected,
   onSelect,
   onDelete,
-  onRename,
   accentColor = 'blue',
 }: {
   credential: { credentialId: string; keyName: string; type: string; createdAt: string; metadata?: { userAgent?: string; backupEligible?: boolean; backupState?: boolean } };
   isSelected: boolean;
   onSelect: () => void;
   onDelete: (id: string) => Promise<void>;
-  onRename: (id: string, newName: string) => Promise<void>;
   accentColor?: 'blue' | 'emerald';
 }) {
-  const [editing, setEditing] = useState(false);
-  const [editName, setEditName] = useState(credential.keyName);
   const [deleting, setDeleting] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const provider = getPasskeyProviderInfo(credential);
 
@@ -195,16 +190,6 @@ function CredentialCard({
   const formattedDate = createdDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const formattedTime = createdDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-  const handleRenameSubmit = async () => {
-    const trimmed = editName.trim();
-    if (trimmed && trimmed !== credential.keyName) {
-      await onRename(credential.credentialId, trimmed);
-    } else {
-      setEditName(credential.keyName);
-    }
-    setEditing(false);
-  };
-
   const handleDeleteClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm(`Delete "${credential.keyName}"? This cannot be undone. Any files encrypted with it will be unrecoverable.`)) return;
@@ -214,13 +199,6 @@ function CredentialCard({
     } catch {
       setDeleting(false);
     }
-  };
-
-  const handleEditClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditName(credential.keyName);
-    setEditing(true);
-    setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   return (
@@ -236,22 +214,7 @@ function CredentialCard({
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          {editing ? (
-            <input
-              ref={inputRef}
-              value={editName}
-              onChange={e => setEditName(e.target.value)}
-              onBlur={handleRenameSubmit}
-              onKeyDown={e => {
-                if (e.key === 'Enter') { e.preventDefault(); handleRenameSubmit(); }
-                if (e.key === 'Escape') { setEditName(credential.keyName); setEditing(false); }
-              }}
-              onClick={e => e.stopPropagation()}
-              className="w-full rounded bg-slate-800 border border-white/20 px-2 py-0.5 text-sm text-white focus:outline-none focus:border-blue-400"
-            />
-          ) : (
-            <p className="text-sm font-medium text-white truncate">{credential.keyName}</p>
-          )}
+          <p className="text-sm font-medium text-white truncate">{credential.keyName}</p>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <p className="text-xs text-slate-400">{provider.providerName}</p>
             {provider.synced !== null && (
@@ -276,16 +239,6 @@ function CredentialCard({
 
         {/* Action buttons */}
         <div className="flex items-center gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
-          <button
-            type="button"
-            title="Rename (updates display name in Rico only — your password manager keeps the original name)"
-            onClick={handleEditClick}
-            className="p-1.5 rounded text-slate-500 hover:text-slate-300 hover:bg-white/10 transition"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
-          </button>
           <button
             type="button"
             title="Delete"
@@ -1389,7 +1342,6 @@ export default function Home() {
                                         isSelected={workflow.selectedCredential?.credentialId === cred.credentialId}
                                         onSelect={() => handleSelectCredential(cred)}
                                         onDelete={handleDeleteCredential}
-                                        onRename={handleRenameCredential}
                                         accentColor="emerald"
                                       />
                                     ))}
@@ -1452,7 +1404,6 @@ export default function Home() {
                             isSelected={workflow.selectedCredential?.credentialId === cred.credentialId}
                             onSelect={() => handleSelectCredential(cred)}
                             onDelete={handleDeleteCredential}
-                            onRename={handleRenameCredential}
                             accentColor="blue"
                           />
                         ))}
@@ -1674,6 +1625,13 @@ export default function Home() {
                 </button>
               </div>
             </div>
+
+            <button
+              onClick={handleStartOver}
+              className="mt-2 text-sm text-slate-400 hover:text-slate-300 transition"
+            >
+              ← Cancel and start over
+            </button>
           </section>
         )}
 

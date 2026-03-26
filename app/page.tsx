@@ -106,17 +106,6 @@ function WindowsIcon() {
   );
 }
 
-function ChromeIcon() {
-  return (
-    <svg className="w-6 h-6" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="10" fill="#fff" />
-      <circle cx="12" cy="12" r="4" fill="#4285F4" />
-      <path d="M12 8h8.66A10 10 0 0112 2V8z" fill="#EA4335" />
-      <path d="M5.34 17L1 9.66A10 10 0 0012 22l-3.46-6z" fill="#34A853" />
-      <path d="M18.66 17L12 22a10 10 0 009.66-12.34L15.34 17z" fill="#FBBC05" />
-    </svg>
-  );
-}
 
 function DashlaneIcon() {
   return (
@@ -165,12 +154,13 @@ function getPasskeyProviderInfo(credential: { keyName: string; type: string; met
   if (name.includes('windows hello') || name.includes('windows')) {
     return { iconEl: <WindowsIcon />, providerName: 'Windows Hello', synced: backupEligible ?? false };
   }
-  if (name.includes('chrome on mac') || name.includes('chrome')) {
-    return { iconEl: <ChromeIcon />, providerName: 'Chrome', synced: backupEligible };
-  }
-
   // Fall back to user agent detection
-  if (ua.includes('iphone') || ua.includes('ipad') || (ua.includes('mac os x') && ua.includes('safari') && !ua.includes('chrome'))) {
+  if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('crios')) {
+    // iOS/iPadOS — always iCloud Keychain regardless of browser
+    return { iconEl: <AppleIcon />, providerName: 'iCloud Keychain', synced: backupEligible ?? true };
+  }
+  if (ua.includes('mac os x') || ua.includes('macintosh')) {
+    // macOS — Chrome/Firefox/Safari all use the platform authenticator = iCloud Keychain
     return { iconEl: <AppleIcon />, providerName: 'iCloud Keychain', synced: backupEligible ?? true };
   }
   if (ua.includes('android')) {
@@ -178,9 +168,6 @@ function getPasskeyProviderInfo(credential: { keyName: string; type: string; met
   }
   if (ua.includes('windows nt') && !ua.includes('android')) {
     return { iconEl: <WindowsIcon />, providerName: 'Windows Hello', synced: backupEligible ?? false };
-  }
-  if (ua.includes('chrome') && (ua.includes('mac os x') || ua.includes('macintosh'))) {
-    return { iconEl: <ChromeIcon />, providerName: 'Chrome on Mac', synced: backupEligible };
   }
 
   if (credential.type === 'fallback-pbkdf2') {

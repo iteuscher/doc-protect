@@ -58,6 +58,29 @@ interface WorkflowState {
   decryptedData: { fileName: string; url: string } | null;
 }
 
+function InfoTooltip({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-flex items-center ml-1.5 align-middle">
+      <button
+        type="button"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onClick={() => setOpen(v => !v)}
+        className="w-4 h-4 rounded-full bg-slate-700 text-slate-300 text-[10px] font-bold flex items-center justify-center hover:bg-slate-600 transition leading-none"
+        aria-label="More info"
+      >
+        ?
+      </button>
+      {open && (
+        <span className="absolute left-6 top-1/2 -translate-y-1/2 z-20 w-60 rounded-lg bg-slate-800 border border-white/10 px-3 py-2 text-xs text-slate-300 shadow-xl pointer-events-none">
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export default function Home() {
   // PRF and credentials
   const [prfSupport, setPrfSupport] = useState<PRFSupport | null>(null);
@@ -198,17 +221,24 @@ export default function Home() {
   const handleFileUpload = useCallback((file: File) => {
     const isRico = file.name.toLowerCase().endsWith('.rico') || file.type === 'application/zip';
 
+    // Auto-select the most recently created credential when decrypting
+    const latestCredential = isRico && credentials.length > 0
+      ? [...credentials].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+      : null;
+
     setWorkflow(prev => ({
       ...prev,
       step: 'verify-identity',
       uploadedFile: file,
       fileType: isRico ? 'rico' : 'standard',
-      customCredentialName: file.name.replace(/\.(rico|pdf|docx?|txt|png|jpe?g)$/i, '')
+      customCredentialName: file.name.replace(/\.(rico|pdf|docx?|txt|png|jpe?g)$/i, ''),
+      selectedCredential: latestCredential ?? prev.selectedCredential,
+      credentialMode: latestCredential ? 'select-stored' : prev.credentialMode,
     }));
 
     setStatusMessage(isRico ? 'Ready to decrypt' : 'Ready to encrypt');
     setErrorMessage(null);
-  }, []);
+  }, [credentials]);
 
   const handleDrop = (event: DragEvent<HTMLLabelElement>) => {
     event.preventDefault();
@@ -711,7 +741,7 @@ export default function Home() {
             <div>
               {/* <p className="text-sm uppercase tracking-wide text-slate-400">Rico</p> */}
               <h1 className="text-3xl font-semibold text-white">
-                Passwordless Document Encryption
+                Passwordless File Encryption & Decryption
               </h1>
             </div>
             <div className="flex items-center gap-2">
@@ -969,8 +999,8 @@ export default function Home() {
                 </svg>
               </div>
               <div>
-                <p className="text-lg font-medium text-white mb-2">Upload a File</p>
-                <p className="text-sm text-slate-400">Drag & drop or click to select</p>
+                <p className="text-lg font-medium text-white mb-2">Upload a File to Encrypt or Decrypt</p>
+                <p className="text-sm text-slate-400">Drag & drop or click to select any file — or a <span className="text-emerald-400">.rico</span> file to decrypt</p>
               </div>
               <div className="rounded-full bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400">
                 Choose File
@@ -1029,6 +1059,7 @@ export default function Home() {
                       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
                         <p className="text-sm font-medium text-emerald-200 mb-3">
                           New Passkey
+                          <InfoTooltip text="Registers a brand-new passkey on your device. Your browser or password manager saves it automatically so you can use it to decrypt this file later." />
                         </p>
                         <div className="flex gap-2">
                           <input
@@ -1075,6 +1106,7 @@ export default function Home() {
                                 <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
                                   <p className="text-sm font-medium text-blue-200 mb-3">
                                     Existing Credential
+                                    <InfoTooltip text="Encrypt using a passkey you've already created on this device. The same credential will be required to decrypt the file." />
                                   </p>
                                   <div className="flex flex-wrap gap-2">
                                     {credentials.map((cred) => (
@@ -1101,6 +1133,7 @@ export default function Home() {
                               <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
                                 <p className="text-sm font-medium text-purple-200 mb-3">
                                   Use Password Manager
+                                  <InfoTooltip text="Opens your system's passkey picker (iCloud Keychain, Google Password Manager, Bitwarden, 1Password, etc.) — no locally stored credential needed." />
                                 </p>
                                 <button
                                   onClick={handleUseExternalCredential}
@@ -1141,6 +1174,7 @@ export default function Home() {
                     <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
                       <p className="text-sm font-medium text-blue-200 mb-3">
                         Stored Credentials
+                        <InfoTooltip text="Select a passkey previously saved on this device. It must be the same credential that was used when this file was encrypted." />
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {credentials.map((cred) => (
@@ -1167,6 +1201,7 @@ export default function Home() {
                   <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
                     <p className="text-sm font-medium text-purple-200 mb-3">
                       Use Password Manager
+                      <InfoTooltip text="Opens your system's passkey picker (iCloud Keychain, Google Password Manager, Bitwarden, 1Password, etc.) — the credential doesn't need to be stored on this device." />
                     </p>
                     <button
                       onClick={handleUseExternalCredential}
@@ -1402,7 +1437,7 @@ export default function Home() {
                   onClick={handleStartOver}
                   className="w-full rounded-lg bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400"
                 >
-                  Encrypt Another File
+                  Encrypt / Decrypt a File
                 </button>
 
                 <button
@@ -1459,7 +1494,7 @@ export default function Home() {
                 onClick={handleStartOver}
                 className="w-full mt-2 rounded-lg border border-white/10 bg-slate-800/50 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-slate-800"
               >
-                Decrypt Another File
+                Encrypt / Decrypt a File
               </button>
             </div>
           </section>
@@ -1546,7 +1581,7 @@ export default function Home() {
                   onClick={handleStartOver}
                   className="w-full rounded-lg bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400"
                 >
-                  Encrypt Another File
+                  Encrypt / Decrypt a File
                 </button>
 
                 <button

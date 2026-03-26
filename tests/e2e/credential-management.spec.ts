@@ -120,7 +120,7 @@ test.describe('Credential Management', () => {
 
     for (const credName of credentials) {
       await createAndEncryptFull(`file-${credName}.txt`, credName);
-      await page.locator('button:has-text("Encrypt Another File")').click();
+      await page.locator('button:has-text("Encrypt / Decrypt a File")').click();
     }
 
     // Upload another file to see all credentials
@@ -142,7 +142,7 @@ test.describe('Credential Management', () => {
     // Create a credential
     const credName = 'Selectable Credential';
     await createAndEncryptFull('first-file.txt', credName);
-    await page.locator('button:has-text("Encrypt Another File")').click();
+    await page.locator('button:has-text("Encrypt / Decrypt a File")').click();
 
     // Upload new file
     await navigateToCredentialScreen('second-file.txt');
@@ -208,7 +208,7 @@ test.describe('Credential Management', () => {
     await page.locator('text=Use existing').click();
 
     // Click "Use Password Manager"
-    const pwdMgrButton = page.locator('button:has-text("Select from Google, iCloud")');
+    const pwdMgrButton = page.locator('button:has-text("Google, iCloud, Bitwarden")');
     await pwdMgrButton.click();
 
     // Button should be highlighted

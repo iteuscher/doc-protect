@@ -169,7 +169,7 @@ export async function storeBundle(
 ): Promise<void> {
   validateBrowserStorageSupport();
 
-  const buffer = await new Response(bundleBlob).arrayBuffer();
+  const buffer = await bundleBlob.arrayBuffer();
   const record: BundleRecord = {
     bundleId,
     data: new Uint8Array(buffer),

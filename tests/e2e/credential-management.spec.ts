@@ -134,7 +134,7 @@ test.describe('Credential Management', () => {
 
     // All credentials should be visible
     for (const credName of credentials) {
-      await expect(page.locator(`button:has-text("${credName}")`)).toBeVisible();
+      await expect(page.getByText(credName).first()).toBeVisible();
     }
   });
 
@@ -151,11 +151,11 @@ test.describe('Credential Management', () => {
     await page.locator('text=Use existing').click();
 
     // Select the existing credential
-    const credButton = page.locator(`button:has-text("${credName}")`).first();
-    await credButton.click();
+    const credCard = page.locator(`div.cursor-pointer:has(p:text-is("${credName}"))`).first();
+    await credCard.click();
 
-    // Button should be highlighted/selected
-    await expect(credButton).toHaveClass(/blue/);
+    // Card should be highlighted/selected (emerald in encrypt path)
+    await expect(credCard).toHaveClass(/emerald/);
 
     // Should show encrypt button inside the dropdown
     await expect(page.locator('text=Encrypt File →')).toBeVisible();

@@ -168,7 +168,7 @@ test.describe('Encryption Workflow', () => {
     await expect(page.locator(`text=${credentialName}`)).toBeVisible();
 
     // Select the existing credential
-    await page.locator(`button:has-text("${credentialName}")`).first().click();
+    await page.getByText(credentialName).first().click();
 
     // Should be able to proceed with Encrypt File button
     await expect(page.locator('text=Encrypt File →')).toBeVisible();

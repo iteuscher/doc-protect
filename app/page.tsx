@@ -12,8 +12,8 @@
  * 6. Detailed Info (expandable)
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import type { ChangeEvent, DragEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ChangeEvent, DragEvent, ReactNode } from 'react';
 import type { PRFSupport, WebAuthnCredential, FallbackCredential } from '@/lib/types/credential';
 import type { RicoBundle } from '@/lib/types/bundle';
 import type { EncryptionAlgorithm, EncryptionSettings, StoredKeypair } from '@/lib/types/settings';
@@ -23,13 +23,14 @@ import { getCachedPRFSupport, getPlatformPRFInfo } from '@/lib/auth/prf-detectio
 import { uploadBundle } from '@/lib/api/client';
 import {
   createCredential,
+  deleteCredential,
   listUserCredentials,
   selectExistingCredential
 } from '@/lib/auth/webauthn';
 import { encryptFile, decryptFile } from '@/lib/crypto/encryption';
 import { parseBundle } from '@/lib/crypto/bundle';
 import { resetAllData } from '@/lib/storage/reset';
-import { getSettings, saveSettings, listKeypairs } from '@/lib/storage/indexeddb';
+import { getSettings, saveSettings, listKeypairs, updateCredential } from '@/lib/storage/indexeddb';
 import { generatePQKeypair, generateX25519Keypair } from '@/lib/crypto/keygen';
 
 // Workflow steps
@@ -56,6 +57,199 @@ interface WorkflowState {
   sharingMode: SharingMode;
   encryptedBundle: RicoBundle | null;
   decryptedData: { fileName: string; url: string } | null;
+}
+
+// --- Passkey Provider Icon Components ---
+
+function AppleIcon() {
+  return (
+    <svg className="w-6 h-6 text-slate-300" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+    </svg>
+  );
+}
+
+function GooglePMIcon() {
+  return (
+    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
+      <circle cx="8.5" cy="9.5" r="5" stroke="#4285F4" strokeWidth="2" />
+      <circle cx="8.5" cy="9.5" r="2" fill="#4285F4" />
+      <path d="M13 9.5h7" stroke="#EA4335" strokeWidth="2" strokeLinecap="round" />
+      <path d="M17 9.5v2.5" stroke="#34A853" strokeWidth="2" strokeLinecap="round" />
+      <path d="M20 9.5v2.5" stroke="#FBBC05" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function BitwardenIcon() {
+  return (
+    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="#175DDC">
+      <path d="M12 2L4 5.8V12c0 5 3.6 9.6 8 11 4.4-1.4 8-6 8-11V5.8L12 2zm0 3.5l5 2.3V12c0 3.5-2.4 6.7-5 7.8C9.4 18.7 7 15.5 7 12V7.8l5-2.3z" />
+      <path d="M10 11.5l1.5 1.5L14 10" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
+function OnePasswordIcon() {
+  return (
+    <div className="w-6 h-6 rounded bg-[#0C4BE3] flex items-center justify-center flex-shrink-0">
+      <span className="text-white text-xs font-bold leading-none">1P</span>
+    </div>
+  );
+}
+
+function WindowsIcon() {
+  return (
+    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="#0078D4">
+      <path d="M0 3.449L9.75 2.1v9.45H0M10.949 1.949L24 0v11.4H10.949M0 12.6h9.75v9.449L0 20.699M10.949 12.6H24V24l-13.051-1.8" />
+    </svg>
+  );
+}
+
+
+function DashlaneIcon() {
+  return (
+    <div className="w-6 h-6 rounded bg-[#00B050] flex items-center justify-center flex-shrink-0">
+      <span className="text-white text-xs font-bold leading-none">D</span>
+    </div>
+  );
+}
+
+function PasskeyKeyIcon() {
+  return (
+    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+    </svg>
+  );
+}
+
+// --- Provider Detection ---
+
+interface PasskeyProviderInfo {
+  iconEl: ReactNode;
+  providerName: string;
+  synced: boolean | null; // null = unknown
+}
+
+function getPasskeyProviderInfo(credential: { keyName: string; type: string; metadata?: { userAgent?: string; backupEligible?: boolean; backupState?: boolean } }): PasskeyProviderInfo {
+  const name = (credential.keyName || '').toLowerCase();
+  const backupEligible = credential.metadata?.backupEligible ?? null;
+
+  if (name.includes('icloud') || name.includes('keychain') || (name.includes('apple') && !name.includes('windows'))) {
+    return { iconEl: <AppleIcon />, providerName: 'iCloud Keychain', synced: backupEligible ?? true };
+  }
+  if (name.includes('google password') || name.includes('gpm') || name.includes('google pass') || name.includes('google pwd')) {
+    return { iconEl: <GooglePMIcon />, providerName: 'Google Password Manager', synced: backupEligible ?? true };
+  }
+  if (name.includes('bitwarden')) {
+    return { iconEl: <BitwardenIcon />, providerName: 'Bitwarden', synced: backupEligible ?? true };
+  }
+  if (name.includes('1password') || name.includes('1pass') || name.includes('onepassword')) {
+    return { iconEl: <OnePasswordIcon />, providerName: '1Password', synced: backupEligible ?? true };
+  }
+  if (name.includes('dashlane')) {
+    return { iconEl: <DashlaneIcon />, providerName: 'Dashlane', synced: backupEligible ?? true };
+  }
+  if (name.includes('windows hello') || name.includes('windows')) {
+    return { iconEl: <WindowsIcon />, providerName: 'Windows Hello', synced: backupEligible ?? false };
+  }
+
+  // Cannot reliably detect provider without AAGUID — show generic icon
+  return { iconEl: <PasskeyKeyIcon />, providerName: 'Passkey', synced: backupEligible };
+}
+
+// --- Credential Card Component ---
+
+function CredentialCard({
+  credential,
+  isSelected,
+  onSelect,
+  onDelete,
+  accentColor = 'blue',
+}: {
+  credential: { credentialId: string; keyName: string; type: string; createdAt: string; metadata?: { userAgent?: string; backupEligible?: boolean; backupState?: boolean } };
+  isSelected: boolean;
+  onSelect: () => void;
+  onDelete: (id: string) => Promise<void>;
+  accentColor?: 'blue' | 'emerald';
+}) {
+  const [deleting, setDeleting] = useState(false);
+
+  const provider = getPasskeyProviderInfo(credential);
+
+  const selectedClasses = accentColor === 'emerald'
+    ? 'border-emerald-400 bg-emerald-500/20'
+    : 'border-blue-400 bg-blue-500/20';
+  const defaultClasses = 'border-white/10 bg-white/5 hover:bg-white/10';
+
+  const createdDate = new Date(credential.createdAt);
+  const formattedDate = createdDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const formattedTime = createdDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+  const handleDeleteClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Delete "${credential.keyName}"? This cannot be undone. Any files encrypted with it will be unrecoverable.`)) return;
+    setDeleting(true);
+    try {
+      await onDelete(credential.credentialId);
+    } catch {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div
+      className={`relative rounded-lg border px-3 py-2.5 transition cursor-pointer ${isSelected ? selectedClasses : defaultClasses}`}
+      onClick={onSelect}
+    >
+      <div className="flex items-center gap-3">
+        {/* Provider icon */}
+        <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
+          {provider.iconEl}
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-white truncate">{credential.keyName}</p>
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            <p className="text-xs text-slate-400">{provider.providerName}</p>
+            {provider.synced !== null && (
+              <span
+                title={provider.synced ? 'Synced across devices via cloud password manager' : 'Device-bound — not synced to other devices'}
+                className="cursor-help"
+              >
+                {provider.synced ? (
+                  <svg className="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                ) : (
+                  <svg className="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                )}
+              </span>
+            )}
+            <p className="text-xs text-slate-500">· {formattedDate}, {formattedTime}</p>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+          <button
+            type="button"
+            title="Delete"
+            onClick={handleDeleteClick}
+            disabled={deleting}
+            className="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition disabled:opacity-40"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function InfoTooltip({ text }: { text: string }) {
@@ -114,6 +308,7 @@ export default function Home() {
   // Cloud (Google Drive simulation) state
   const [cloudLink, setCloudLink] = useState<string | null>(null);
   const [isCloudUploading, setIsCloudUploading] = useState(false);
+  const [copiedLink, setCopiedLink] = useState<'shareable' | 'cloud' | null>(null);
 
   // Bundle recipient download state (when visiting with ?bundle=id)
   const [bundleDownload, setBundleDownload] = useState<{
@@ -693,6 +888,33 @@ export default function Home() {
     setErrorMessage(null);
   };
 
+  // ===== CREDENTIAL MANAGEMENT =====
+  const handleDeleteCredential = useCallback(async (credentialId: string) => {
+    try {
+      await deleteCredential(credentialId);
+      const updated = await listUserCredentials();
+      setCredentials(updated);
+      if (workflow.selectedCredential?.credentialId === credentialId) {
+        setWorkflow(prev => ({ ...prev, selectedCredential: null, credentialMode: null }));
+      }
+      setStatusMessage('Passkey deleted');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to delete passkey';
+      setErrorMessage(message);
+    }
+  }, [workflow.selectedCredential]);
+
+  const handleRenameCredential = useCallback(async (credentialId: string, newName: string) => {
+    try {
+      await updateCredential(credentialId, { keyName: newName });
+      const updated = await listUserCredentials();
+      setCredentials(updated);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to rename passkey';
+      setErrorMessage(message);
+    }
+  }, []);
+
   // ===== RESET =====
   const handleReset = async () => {
     if (!confirm('Reset all Rico data? This will delete all credentials and bundles. This cannot be undone.')) {
@@ -741,7 +963,7 @@ export default function Home() {
             <div>
               {/* <p className="text-sm uppercase tracking-wide text-slate-400">Rico</p> */}
               <h1 className="text-3xl font-semibold text-white">
-                Passwordless File Encryption & Decryption
+                Passwordless File Encryption
               </h1>
             </div>
             <div className="flex items-center gap-2">
@@ -1000,7 +1222,7 @@ export default function Home() {
               </div>
               <div>
                 <p className="text-lg font-medium text-white mb-2">Upload a File to Encrypt or Decrypt</p>
-                <p className="text-sm text-slate-400">Drag & drop or click to select any file — or a <span className="text-emerald-400">.rico</span> file to decrypt</p>
+                <p className="text-sm text-slate-400">Drag & drop or click to upload any file. A <span className="text-emerald-400">.rico</span> file will decrypt.</p>
               </div>
               <div className="rounded-full bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400">
                 Choose File
@@ -1108,22 +1330,16 @@ export default function Home() {
                                     Existing Credential
                                     <InfoTooltip text="Encrypt using a passkey you've already created on this device. The same credential will be required to decrypt the file." />
                                   </p>
-                                  <div className="flex flex-wrap gap-2">
+                                  <div className="space-y-2">
                                     {credentials.map((cred) => (
-                                      <button
+                                      <CredentialCard
                                         key={cred.credentialId}
-                                        onClick={() => handleSelectCredential(cred)}
-                                        className={`rounded-lg border px-3 py-2 text-sm transition ${
-                                          workflow.selectedCredential?.credentialId === cred.credentialId
-                                            ? 'border-blue-400 bg-blue-500/20 text-blue-200'
-                                            : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                                        }`}
-                                      >
-                                        {cred.keyName}{' '}
-                                        <span className="text-xs opacity-70">
-                                          ({cred.type === 'fallback-pbkdf2' ? 'Fallback' : 'PRF'})
-                                        </span>
-                                      </button>
+                                        credential={cred}
+                                        isSelected={workflow.selectedCredential?.credentialId === cred.credentialId}
+                                        onSelect={() => handleSelectCredential(cred)}
+                                        onDelete={handleDeleteCredential}
+                                        accentColor="emerald"
+                                      />
                                     ))}
                                   </div>
                                 </div>
@@ -1133,7 +1349,7 @@ export default function Home() {
                               <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
                                 <p className="text-sm font-medium text-purple-200 mb-3">
                                   Use Password Manager
-                                  <InfoTooltip text="Opens your system's passkey picker (iCloud Keychain, Google Password Manager, Bitwarden, 1Password, etc.) — no locally stored credential needed." />
+                                  <InfoTooltip text="Use a passkey already saved in iCloud Keychain, Google Password Manager, Bitwarden, 1Password, etc. Choose this if you previously created a .rico passkey and want to reuse it." />
                                 </p>
                                 <button
                                   onClick={handleUseExternalCredential}
@@ -1176,22 +1392,16 @@ export default function Home() {
                         Stored Credentials
                         <InfoTooltip text="Select a passkey previously saved on this device. It must be the same credential that was used when this file was encrypted." />
                       </p>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="space-y-2">
                         {credentials.map((cred) => (
-                          <button
+                          <CredentialCard
                             key={cred.credentialId}
-                            onClick={() => handleSelectCredential(cred)}
-                            className={`rounded-lg border px-3 py-2 text-sm transition ${
-                              workflow.selectedCredential?.credentialId === cred.credentialId
-                                ? 'border-blue-400 bg-blue-500/20 text-blue-200'
-                                : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                            }`}
-                          >
-                            {cred.keyName}{' '}
-                            <span className="text-xs opacity-70">
-                              ({cred.type === 'fallback-pbkdf2' ? 'Fallback' : 'PRF'})
-                            </span>
-                          </button>
+                            credential={cred}
+                            isSelected={workflow.selectedCredential?.credentialId === cred.credentialId}
+                            onSelect={() => handleSelectCredential(cred)}
+                            onDelete={handleDeleteCredential}
+                            accentColor="blue"
+                          />
                         ))}
                       </div>
                     </div>
@@ -1201,7 +1411,7 @@ export default function Home() {
                   <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
                     <p className="text-sm font-medium text-purple-200 mb-3">
                       Use Password Manager
-                      <InfoTooltip text="Opens your system's passkey picker (iCloud Keychain, Google Password Manager, Bitwarden, 1Password, etc.) — the credential doesn't need to be stored on this device." />
+                      <InfoTooltip text="Opens your system's passkey picker (iCloud Keychain, Google Password Manager, Bitwarden, 1Password, etc.). The credential doesn't need to be stored on this device." />
                     </p>
                     <button
                       onClick={handleUseExternalCredential}
@@ -1411,6 +1621,13 @@ export default function Home() {
                 </button>
               </div>
             </div>
+
+            <button
+              onClick={handleStartOver}
+              className="mt-2 text-sm text-slate-400 hover:text-slate-300 transition"
+            >
+              ← Cancel and start over
+            </button>
           </section>
         )}
 
@@ -1525,10 +1742,10 @@ export default function Home() {
                         className="flex-1 rounded bg-slate-800 px-3 py-2 text-xs text-slate-200 font-mono truncate"
                       />
                       <button
-                        onClick={() => navigator.clipboard.writeText(shareableLink)}
+                        onClick={() => { navigator.clipboard.writeText(shareableLink); setCopiedLink('shareable'); setTimeout(() => setCopiedLink(null), 2000); }}
                         className="shrink-0 rounded bg-purple-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-purple-500"
                       >
-                        Copy
+                        {copiedLink === 'shareable' ? 'Copied!' : 'Copy'}
                       </button>
                     </div>
                     <p className="text-xs text-slate-500 mt-2">
@@ -1553,10 +1770,10 @@ export default function Home() {
                         className="flex-1 rounded bg-slate-800 px-3 py-2 text-xs text-slate-200 font-mono truncate"
                       />
                       <button
-                        onClick={() => navigator.clipboard.writeText(cloudLink)}
+                        onClick={() => { navigator.clipboard.writeText(cloudLink); setCopiedLink('cloud'); setTimeout(() => setCopiedLink(null), 2000); }}
                         className="shrink-0 rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500"
                       >
-                        Copy
+                        {copiedLink === 'cloud' ? 'Copied!' : 'Copy'}
                       </button>
                     </div>
                     <p className="text-xs text-slate-500 mt-2">

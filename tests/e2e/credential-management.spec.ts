@@ -120,7 +120,7 @@ test.describe('Credential Management', () => {
 
     for (const credName of credentials) {
       await createAndEncryptFull(`file-${credName}.txt`, credName);
-      await page.locator('button:has-text("Encrypt Another File")').click();
+      await page.locator('button:has-text("Encrypt / Decrypt a File")').click();
     }
 
     // Upload another file to see all credentials
@@ -134,7 +134,7 @@ test.describe('Credential Management', () => {
 
     // All credentials should be visible
     for (const credName of credentials) {
-      await expect(page.locator(`button:has-text("${credName}")`)).toBeVisible();
+      await expect(page.getByText(credName).first()).toBeVisible();
     }
   });
 
@@ -142,7 +142,7 @@ test.describe('Credential Management', () => {
     // Create a credential
     const credName = 'Selectable Credential';
     await createAndEncryptFull('first-file.txt', credName);
-    await page.locator('button:has-text("Encrypt Another File")').click();
+    await page.locator('button:has-text("Encrypt / Decrypt a File")').click();
 
     // Upload new file
     await navigateToCredentialScreen('second-file.txt');
@@ -151,11 +151,11 @@ test.describe('Credential Management', () => {
     await page.locator('text=Use existing').click();
 
     // Select the existing credential
-    const credButton = page.locator(`button:has-text("${credName}")`).first();
-    await credButton.click();
+    const credCard = page.locator(`div.cursor-pointer:has(p:text-is("${credName}"))`).first();
+    await credCard.click();
 
-    // Button should be highlighted/selected
-    await expect(credButton).toHaveClass(/blue/);
+    // Card should be highlighted/selected (emerald in encrypt path)
+    await expect(credCard).toHaveClass(/emerald/);
 
     // Should show encrypt button inside the dropdown
     await expect(page.locator('text=Encrypt File →')).toBeVisible();
@@ -208,7 +208,7 @@ test.describe('Credential Management', () => {
     await page.locator('text=Use existing').click();
 
     // Click "Use Password Manager"
-    const pwdMgrButton = page.locator('button:has-text("Select from Google, iCloud")');
+    const pwdMgrButton = page.locator('button:has-text("Google, iCloud, Bitwarden")');
     await pwdMgrButton.click();
 
     // Button should be highlighted

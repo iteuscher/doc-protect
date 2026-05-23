@@ -32,7 +32,7 @@ test.describe('UI and UX Features', () => {
   test.describe('Header and Branding', () => {
     test('should display Rico branding', async () => {
       await expect(page.locator('text=Rico')).toBeVisible();
-      await expect(page.locator('text=Passwordless Document Encryption')).toBeVisible();
+      await expect(page.locator('text=Passwordless File Encryption')).toBeVisible();
     });
 
     test('should display Reset All button', async () => {
@@ -90,7 +90,7 @@ test.describe('UI and UX Features', () => {
 
   test.describe('File Upload Interface', () => {
     test('should show drag and drop area', async () => {
-      const dropZone = page.locator('text=Drag & drop or click to select');
+      const dropZone = page.locator('text=Drag & drop or click');
       await expect(dropZone).toBeVisible();
     });
 
@@ -242,7 +242,7 @@ test.describe('UI and UX Features', () => {
       await page.locator('button:has-text("Create & Encrypt")').click();
       await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible({ timeout: 15000 });
       await page.locator('button:has-text("Skip Recipients")').click();
-      await expect(page.locator('text=Share the Encrypted File')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Share the Encrypted File' })).toBeVisible();
     }
 
     test('should show all sharing options with icons', async ({ browserName }) => {
@@ -255,32 +255,23 @@ test.describe('UI and UX Features', () => {
 
       // Cloud storage option
       await expect(page.locator('text=Store in Cloud')).toBeVisible();
-      await expect(page.locator('text=Upload to Google Drive, Dropbox, or OneDrive')).toBeVisible();
+      await expect(page.locator('text=Upload to Google Drive')).toBeVisible();
 
       // Link sharing option
       await expect(page.locator('text=Link Sharing')).toBeVisible();
-      await expect(page.locator('text=Upload to Supabase/S3 and get a shareable link')).toBeVisible();
+      await expect(page.locator('text=Upload and get a shareable link')).toBeVisible();
     });
 
-    test('should show coming soon badges for unavailable options', async ({ browserName }) => {
+    test('should have cloud and link sharing options enabled', async ({ browserName }) => {
       test.skip(browserName !== 'chromium', 'WebAuthn required - Chromium only');
       await navigateToSharing();
 
-      // Should show "Coming soon" for cloud and link options
-      const comingSoonCount = await page.locator('text=Coming soon').count();
-      expect(comingSoonCount).toBeGreaterThan(0);
-    });
-
-    test('should disable unavailable sharing options', async ({ browserName }) => {
-      test.skip(browserName !== 'chromium', 'WebAuthn required - Chromium only');
-      await navigateToSharing();
-
-      // Cloud and link buttons should be disabled
+      // Cloud and link sharing are now fully implemented
       const cloudButton = page.locator('button:has-text("Store in Cloud")');
       const linkButton = page.locator('button:has-text("Link Sharing")');
 
-      await expect(cloudButton).toBeDisabled();
-      await expect(linkButton).toBeDisabled();
+      await expect(cloudButton).toBeEnabled();
+      await expect(linkButton).toBeEnabled();
     });
 
     test('should enable download option', async ({ browserName }) => {

@@ -60,7 +60,7 @@ test.describe('Recipients Management', () => {
     // Should show recipients UI
     await expect(page.locator('text=Add Recipients (Optional)')).toBeVisible();
     await expect(page.locator('text=Who should be able to decrypt this file?')).toBeVisible();
-    await expect(page.locator('input[placeholder="recipient@example.com"]')).toBeVisible();
+    await expect(page.locator('input[placeholder="recipient@example.com, another@example.com"]')).toBeVisible();
     await expect(page.locator('button:has-text("Add")')).toBeVisible();
   });
 
@@ -68,7 +68,7 @@ test.describe('Recipients Management', () => {
     await navigateToRecipientsScreen();
 
     const email = 'alice@example.com';
-    const emailInput = page.locator('input[placeholder="recipient@example.com"]');
+    const emailInput = page.locator('input[placeholder="recipient@example.com, another@example.com"]');
 
     // Enter email
     await emailInput.fill(email);
@@ -84,7 +84,7 @@ test.describe('Recipients Management', () => {
     await expect(emailInput).toHaveValue('');
 
     // Status should update
-    await expect(page.locator(`text=Added ${email} as recipient`)).toBeVisible();
+    await expect(page.locator(`text=Added 1 recipient: ${email}`)).toBeVisible();
   });
 
   test('should add multiple recipients', async () => {
@@ -96,7 +96,7 @@ test.describe('Recipients Management', () => {
       'charlie@example.com',
     ];
 
-    const emailInput = page.locator('input[placeholder="recipient@example.com"]');
+    const emailInput = page.locator('input[placeholder="recipient@example.com, another@example.com"]');
 
     for (const email of recipients) {
       await emailInput.fill(email);
@@ -124,14 +124,14 @@ test.describe('Recipients Management', () => {
       'test@@example.com',
     ];
 
-    const emailInput = page.locator('input[placeholder="recipient@example.com"]');
+    const emailInput = page.locator('input[placeholder="recipient@example.com, another@example.com"]');
 
     for (const email of invalidEmails) {
       await emailInput.fill(email);
       await page.locator('button:has-text("Add")').click();
 
       // Should show error
-      await expect(page.locator('text=Please enter a valid email address')).toBeVisible();
+      await expect(page.locator('text=Invalid email').first()).toBeVisible();
 
       // Should not be added to list
       const recipientExists = await page.locator(`text=${email}`).count();
@@ -143,7 +143,7 @@ test.describe('Recipients Management', () => {
     await navigateToRecipientsScreen();
 
     const email = 'duplicate@example.com';
-    const emailInput = page.locator('input[placeholder="recipient@example.com"]');
+    const emailInput = page.locator('input[placeholder="recipient@example.com, another@example.com"]');
 
     // Add first time
     await emailInput.fill(email);
@@ -155,14 +155,14 @@ test.describe('Recipients Management', () => {
     await page.locator('button:has-text("Add")').click();
 
     // Should show error
-    await expect(page.locator('text=This recipient has already been added')).toBeVisible();
+    await expect(page.locator('text=Duplicate').first()).toBeVisible();
   });
 
   test('should remove a recipient', async () => {
     await navigateToRecipientsScreen();
 
     const email = 'remove-me@example.com';
-    const emailInput = page.locator('input[placeholder="recipient@example.com"]');
+    const emailInput = page.locator('input[placeholder="recipient@example.com, another@example.com"]');
 
     // Add recipient
     await emailInput.fill(email);
@@ -185,7 +185,7 @@ test.describe('Recipients Management', () => {
     await navigateToRecipientsScreen();
 
     const email = 'enter-key@example.com';
-    const emailInput = page.locator('input[placeholder="recipient@example.com"]');
+    const emailInput = page.locator('input[placeholder="recipient@example.com, another@example.com"]');
 
     // Enter email and press Enter
     await emailInput.fill(email);
@@ -198,7 +198,7 @@ test.describe('Recipients Management', () => {
   test('should not add empty email', async () => {
     await navigateToRecipientsScreen();
 
-    const emailInput = page.locator('input[placeholder="recipient@example.com"]');
+    const emailInput = page.locator('input[placeholder="recipient@example.com, another@example.com"]');
 
     // Try to add empty email
     await emailInput.fill('');
@@ -217,8 +217,8 @@ test.describe('Recipients Management', () => {
     await page.locator('button:has-text("Skip Recipients")').click();
 
     // Should navigate to sharing
-    await expect(page.locator('text=Share the Encrypted File')).toBeVisible();
-    await expect(page.locator('text=No additional recipients. Choose sharing method.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Share the Encrypted File' })).toBeVisible();
+    await expect(page.locator('text=Recipients skipped. Choose how to share')).toBeVisible();
   });
 
   test('should proceed to sharing with recipients', async () => {
@@ -226,7 +226,7 @@ test.describe('Recipients Management', () => {
 
     // Add recipients
     const recipients = ['user1@example.com', 'user2@example.com'];
-    const emailInput = page.locator('input[placeholder="recipient@example.com"]');
+    const emailInput = page.locator('input[placeholder="recipient@example.com, another@example.com"]');
 
     for (const email of recipients) {
       await emailInput.fill(email);
@@ -238,7 +238,6 @@ test.describe('Recipients Management', () => {
 
     // Should navigate to sharing
     await expect(page.getByRole('heading', { name: 'Share the Encrypted File' })).toBeVisible();
-    await expect(page.locator('text=Share the Encrypted File')).toBeVisible();
   });
 
   test('should show recipients in technical info', async () => {
@@ -246,7 +245,7 @@ test.describe('Recipients Management', () => {
 
     // Add recipients
     const recipients = ['tech1@example.com', 'tech2@example.com'];
-    const emailInput = page.locator('input[placeholder="recipient@example.com"]');
+    const emailInput = page.locator('input[placeholder="recipient@example.com, another@example.com"]');
 
     for (const email of recipients) {
       await emailInput.fill(email);
@@ -269,7 +268,7 @@ test.describe('Recipients Management', () => {
     await navigateToRecipientsScreen();
 
     const email = 'persist@example.com';
-    const emailInput = page.locator('input[placeholder="recipient@example.com"]');
+    const emailInput = page.locator('input[placeholder="recipient@example.com, another@example.com"]');
 
     // Add recipient
     await emailInput.fill(email);
@@ -289,7 +288,7 @@ test.describe('Recipients Management', () => {
     await navigateToRecipientsScreen();
 
     const recipients = ['one@example.com', 'two@example.com', 'three@example.com'];
-    const emailInput = page.locator('input[placeholder="recipient@example.com"]');
+    const emailInput = page.locator('input[placeholder="recipient@example.com, another@example.com"]');
 
     for (const email of recipients) {
       await emailInput.fill(email);
@@ -316,7 +315,7 @@ test.describe('Recipients Management', () => {
       'user-name@example-domain.com',
     ];
 
-    const emailInput = page.locator('input[placeholder="recipient@example.com"]');
+    const emailInput = page.locator('input[placeholder="recipient@example.com, another@example.com"]');
 
     for (const email of specialEmails) {
       await emailInput.fill(email);
@@ -330,28 +329,35 @@ test.describe('Recipients Management', () => {
   test('should clear error when valid email is entered', async () => {
     await navigateToRecipientsScreen();
 
-    const emailInput = page.locator('input[placeholder="recipient@example.com"]');
+    const emailInput = page.locator('input[placeholder="recipient@example.com, another@example.com"]');
 
     // Enter invalid email
     await emailInput.fill('invalid');
     await page.locator('button:has-text("Add")').click();
-    await expect(page.locator('text=Please enter a valid email address')).toBeVisible();
+    await expect(page.locator('text=Invalid email').first()).toBeVisible();
 
     // Enter valid email
     await emailInput.fill('valid@example.com');
     await page.locator('button:has-text("Add")').click();
 
     // Error should be cleared
-    await expect(page.locator('text=Please enter a valid email address')).not.toBeVisible();
+    await expect(page.locator('text=Invalid email')).not.toBeVisible();
 
     // Valid email should be added
     await expect(page.locator('text=valid@example.com').first()).toBeVisible();
   });
 
-  test('should show both skip and continue buttons', async () => {
+  test('should show skip button with no recipients, both buttons after adding one', async () => {
     await navigateToRecipientsScreen();
 
-    // Both buttons should be visible
+    // With no recipients, only Skip button is shown
+    await expect(page.locator('button:has-text("Skip Recipients")')).toBeVisible();
+    await expect(page.locator('button:has-text("Continue to Sharing →")')).not.toBeVisible();
+
+    // After adding a recipient, both Skip and Continue buttons are shown
+    const emailInput = page.locator('input[placeholder="recipient@example.com, another@example.com"]');
+    await emailInput.fill('test@example.com');
+    await page.locator('button:has-text("Add")').click();
     await expect(page.locator('button:has-text("Skip Recipients")')).toBeVisible();
     await expect(page.locator('button:has-text("Continue to Sharing →")')).toBeVisible();
   });
